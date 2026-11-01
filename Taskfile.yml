@@ -1,6 +1,11 @@
 version: '3'
 
 tasks:
+  init:dev:
+    desc: Create .venv and install project and development dependencies
+    cmds:
+      - uv sync --locked --group dev
+
   pytest:
     desc: Run pytest with terminal coverage output
     cmds:
@@ -59,3 +64,8 @@ tasks:
     desc: Check dependencies for known vulnerabilities with uv
     cmds:
       - uv audit --preview-features audit-command
+  
+  run:module_00:
+    desc: Run the main script for module 00
+    cmds:
+      - uv run --env-file .env python -m agents_lab.module_00.main

@@ -3,6 +3,27 @@
 Requires Python 3.14+, [uv](https://docs.astral.sh/uv/) with `uv audit`
 support, and [Task](https://taskfile.dev/).
 
+Set up the development environment:
+
+```sh
+task init:dev
+```
+
+This creates `.venv` if needed and installs the project and development
+dependencies from `uv.lock`. It is safe to run again to sync an existing
+environment. Task commands use the environment automatically; manual
+activation is optional (`source .venv/bin/activate`).
+
+Before starting trainee work, check the connection to the OpenAPI model:
+
+```sh
+task run:module_00
+```
+
+This check is required before continuing with the trainee exercises. The task
+loads environment variables from `.env`, so configure the required model
+connection settings there first.
+
 Run all checks:
 
 ```sh
@@ -74,8 +95,3 @@ These hooks check the whole project before every commit, do not apply fixes,
 and require network access for the vulnerability audit and initial installation.
 Hook versions are pinned separately from `uv.lock`; update them with
 `task pre-commit:update`.
-To run them manually:
-
-```sh
-task pre-commit:run
-```
