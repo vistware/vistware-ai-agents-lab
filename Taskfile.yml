@@ -1,0 +1,61 @@
+version: '3'
+
+tasks:
+  pytest:
+    desc: Run pytest with terminal coverage output
+    cmds:
+      - uv run --group dev pytest --cov --cov-report=term-missing {{.CLI_ARGS}}
+
+  pytest:coverage:
+    desc: Run pytest with branch coverage and terminal, HTML, and XML reports
+    cmds:
+      - uv run --group dev pytest --cov --cov-report=term-missing --cov-report=html --cov-report=xml {{.CLI_ARGS}}
+
+  update:
+    desc: Update packages and pre-commit hooks
+    cmds:
+      - task: packages:update
+      - task: pre-commit:update
+
+  packages:update:
+    desc: Upgrade dependency versions and sync the development environment
+    cmds:
+      - uv lock --upgrade
+      - uv sync --locked --group dev
+
+  pre-commit:update:
+    desc: Update pinned pre-commit hook versions
+    cmds:
+      - uv run --group dev pre-commit autoupdate
+
+  pre-commit:install:
+    desc: Install the pre-commit Git hook
+    cmds:
+      - uv run --group dev pre-commit install
+
+  check:
+    desc: Run type, lint, and dependency vulnerability checks
+    cmds:
+      - task: ty
+      - task: ruff:check
+      - task: uv:audit
+
+  ty:
+    desc: Check Python types with ty
+    cmds:
+      - uv run --group dev ty check
+
+  ruff:check:
+    desc: Check Python lint rules with Ruff
+    cmds:
+      - uv run --group dev ruff check .
+
+  ruff:fix:
+    desc: Apply safe automatic Ruff fixes
+    cmds:
+      - uv run --group dev ruff check --fix .
+
+  uv:audit:
+    desc: Check dependencies for known vulnerabilities with uv
+    cmds:
+      - uv audit --preview-features audit-command
