@@ -21,6 +21,12 @@ tasks:
     cmds:
       - task: packages:update
       - task: pre-commit:update
+  
+  fix:
+    desc: Apply safe automatic fixes and formatting
+    cmds:
+      - task: ruff:fix
+      - task: ruff:format
 
   packages:update:
     desc: Upgrade dependency versions and sync the development environment
@@ -51,14 +57,20 @@ tasks:
       - uv run --group dev ty check
 
   ruff:check:
-    desc: Check Python lint rules with Ruff
+    desc: Check Python lint rules and formatting with Ruff
     cmds:
       - uv run --group dev ruff check .
+      - uv run --group dev ruff format --check .
 
   ruff:fix:
     desc: Apply safe automatic Ruff fixes
     cmds:
       - uv run --group dev ruff check --fix .
+  
+  ruff:format:
+    desc: Apply safe automatic Ruff formatting
+    cmds:
+      - uv run --group dev ruff format .
 
   uv:audit:
     desc: Check dependencies for known vulnerabilities with uv

@@ -34,7 +34,7 @@ Run individual tasks:
 
 ```sh
 task ty          # Type checking
-task ruff:check  # Lint checking
+task ruff:check  # Lint and formatting checks
 task ruff:fix    # Apply safe automatic lint fixes
 task uv:audit    # Dependency vulnerability audit (requires network access)
 task --list     # List available tasks

@@ -1,4 +1,3 @@
-
 import os
 
 from pydantic import BaseModel, Field
@@ -15,9 +14,7 @@ class LearningResponse(BaseModel):
 
 def main() -> None:
     if not os.getenv("OPENAI_API_KEY"):
-        raise RuntimeError(
-            "OPENAI_API_KEY is not configured."
-        )
+        raise RuntimeError("OPENAI_API_KEY is not configured.")
 
     agent = Agent(
         os.getenv("AI_MODEL", "openai:gpt-5-mini"),
