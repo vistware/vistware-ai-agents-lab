@@ -28,6 +28,13 @@ tasks:
       - task: ruff:fix
       - task: ruff:format
 
+  check:
+    desc: Run type, lint, and dependency vulnerability checks
+    cmds:
+      - task: ty
+      - task: ruff:check
+      - task: uv:audit
+
   packages:update:
     desc: Upgrade dependency versions and sync the development environment
     cmds:
@@ -43,13 +50,6 @@ tasks:
     desc: Install the pre-commit Git hook
     cmds:
       - uv run --group dev pre-commit install
-
-  check:
-    desc: Run type, lint, and dependency vulnerability checks
-    cmds:
-      - task: ty
-      - task: ruff:check
-      - task: uv:audit
 
   ty:
     desc: Check Python types with ty
@@ -81,3 +81,8 @@ tasks:
     desc: Run the main script for module 00
     cmds:
       - uv run --env-file .env python -m agents_lab.module_00.main
+
+  run:module_01:
+    desc: Run the main script for module 01
+    cmds:
+      - uv run --env-file .env python -m agents_lab.module_01.main
