@@ -169,8 +169,8 @@ The application is **read-only** in its intended tool design. It does not deploy
 From the project root, after installing the dependencies and configuring an API key:
 
 ```bash
-uv sync
-uv run --env-file .env python -m agents_lab.module_01.main
+task init:dev
+task run:module_01
 ```
 
 The `.env` file must not be committed. Configure the settings required by `Module01Settings`, including `OPENAI_API_KEY` and `AI_MODEL`. API calls can incur charges, independently of a ChatGPT subscription.
