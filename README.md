@@ -14,15 +14,21 @@ dependencies from `uv.lock`. It is safe to run again to sync an existing
 environment. Task commands use the environment automatically; manual
 activation is optional (`source .venv/bin/activate`).
 
-Before starting trainee work, check the connection to the OpenAPI model:
+## Running modules
+
+Run these commands from the project root after configuring the required model
+connection settings in `.env`. Each task loads environment variables from `.env`.
 
 ```sh
-task run:module_00
+task run:module_00  # Module 00: check the model connection
+task run:module_01  # Module 01: implement manual agent
+task run:module_02  # Module 02: implement first pydantic agent
 ```
 
-This check is required before continuing with the trainee exercises. The task
-loads environment variables from `.env`, so configure the required model
-connection settings there first.
+Run module 00 to check the connection to the OpenAPI model before continuing
+with the trainee exercises.
+
+## Development tasks
 
 Run all checks:
 

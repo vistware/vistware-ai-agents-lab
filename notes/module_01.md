@@ -1,220 +1,475 @@
-# Module 01 — Building an AI Agent Loop Manually
+# Module 01 — Build an AI Agent Loop from Scratch
 
-> **Educational engineering notes · Python 3.14 · OpenAI Python SDK · Pydantic v2**
->
-> This module demonstrates the internal mechanics of an AI agent **without using an agent framework**. It is a learning exercise, not a production-ready incident response system.
+> **Vistware AI Agents Lab · Python 3.14 · OpenAI Python SDK · Pydantic v2**  
+> **Learning path:** Module 00 → **Module 01: Manual Agent Loop** → Module 02: Pydantic AI
 
-## 1. Purpose
+**What happens when an AI agent calls a tool? Who executes the code? How does the model remember previous steps? And what stops it from running forever?**
 
-The objective is to understand what an agent framework normally handles behind the scenes:
+This guide answers those questions by walking through a small AI agent built **without an agent framework**. Rather than hiding orchestration inside a library, the example exposes the decisions an engineering team must make to build an agent that interacts with real software.
 
-- calling a language model and interpreting its response;
-- allowing the model to choose an action;
-- dispatching that action to an explicitly registered Python function;
-- returning the function's result to the model;
-- preserving conversation context across successive model calls;
-- validating model output and handling errors;
-- stopping execution and cleaning up resources.
+The project is deliberately educational. All incident data is synthetic. The implementation is **not a production-ready incident response system**, and its security and reliability limitations are documented openly.
 
-The example is called **Vistware Incident Investigator**. A user reports HTTP 500 errors after a deployment. The agent can inspect **synthetic** deployment history, application logs and service metrics, then report a possible explanation.
-
-**This implementation uses the low-level `openai` Python SDK and Pydantic. It does not use `pydantic-ai.Agent`, `openai-agents`, or native OpenAI function calling.** Pydantic AI is the subject of subsequent modules. Implementing the loop manually first helps explain *why* the higher-level abstractions exist.
-
-The repository intentionally does not use an `AGENTS.md` file: the exercises are designed to encourage independent engineering and debugging rather than delegation to a coding agent.
-
-## 2. Components
-
-| File | Responsibility |
-| --- | --- |
-| `main.py` | Starts the example and prints the investigation result. |
-| `settings.py` | Loads API credentials, model name and logging settings with `BaseSettings`. |
-| `dependencies.py` | Initializes logging for the module. |
-| `clients.py` | Encapsulates the OpenAI client, a conversation ID, API calls and conversation cleanup. |
-| `schemas.py` | Defines domain models, possible agent actions and Pydantic validation rules. |
-| `tools.py` | Provides three read-only, synthetic investigation functions. |
-| `exceptions.py` | Defines domain-specific exceptions. |
-| `agents.py` | Implements the manual orchestration loop and tool dispatch. |
-
-Shared helpers under `agents_lab.utils` provide logging and type definitions. The file names above describe the reviewed module; this documentation does not imply the code has been independently executed or that automated tests already exist.
-
-## 3. High-level architecture
-
-```mermaid
-flowchart TD
-    U[User incident report] --> A[ManualVistwareIncidentInvestigator]
-    A --> C[VistwareOpenAIClient]
-    C --> API[OpenAI Responses API]
-    API --> C
-    C --> V[Pydantic ModelResponseSchema validation]
-    V --> D{Requested action}
-    D -->|tool| R[Allowlisted Python tool registry]
-    R --> T[Deployments / Logs / Metrics]
-    T --> A
-    D -->|user_input| I[Ask for user input]
-    I --> A
-    D -->|answer| F[Return investigation summary]
-    V -->|invalid output| A
-    A -.->|max step count| S[Stop without a final diagnosis]
-```
-
-The model **does not directly execute Python code**. It generates an action proposal in JSON. The application validates the response, resolves the tool name against a registry, and executes the selected callable.
-
-### The three supported actions
-
-| Action | Expected fields | Runtime behavior |
-| --- | --- | --- |
-| `tool` | `tool_name`, `tool_args`, `reason` | Invoke an allowed tool and send its result back to the model. |
-| `user_input` | `output`, `reason` | Display a question in the terminal and pass the user's answer to the next iteration. |
-| `answer` | `output`, `reason` | End the investigation and return the model's explanation. |
-
-Only one action is expected per model response. The current schema uses `@model_validator(mode="after")` to reject contradictory combinations, such as `action="answer"` with a tool name or `action="tool"` without tool arguments.
-
-## 4. The manual agent loop, step by step
-
-1. `main.py` initializes logging and creates `ManualVistwareIncidentInvestigator(user_problem=...)`.
-2. The investigator builds an **allowlist** of three Python functions and includes their docstrings and response schemas in the model instructions.
-3. `VistwareOpenAIClient` creates an OpenAI conversation lazily on the first request.
-4. The investigator sends the initial problem using `responses.create(...)`, passing the same instructions on each call.
-5. The response text is parsed with `ModelResponseSchema.model_validate_json(...)`. Pydantic checks the shape and the action-specific rules.
-6. For a `tool` action, the application looks up a callable in its registry, invokes it, and sends a textual representation of the result as the next input.
-7. For `user_input`, the application requests information from the terminal. For `answer`, it returns the response.
-8. A maximum-step counter limits loop iterations, including attempts that fail Pydantic validation. When the loop exhausts the limit without a final answer, it returns `None`.
-9. The outer `investigate()` method handles selected errors and calls conversation deletion in `finally`.
-
-### How context is preserved
-
-The client passes the same `conversation` identifier on subsequent Responses API calls. Conversation items are added to the conversation and provided as context on later requests. This fixes a common beginner error: sending only the *most recent* tool result and accidentally losing the original task and earlier evidence.
-
-**Important distinction:** in this demo, tool results are sent back as ordinary text in `input`. They are **not** native `function_call_output` messages with linked call identifiers. This is a deliberate simplification to expose the mechanics of the loop.
-
-### Instructions versus input
-
-- `instructions`: comparatively stable role, safety expectations, tool descriptions and output-format requirements.
-- `input`: the current user request, result from a tool, validation feedback or additional user information.
-- `conversation`: the session context shared across calls.
-
-The demo sends its instructions for each request rather than assuming they are permanently attached to the conversation.
-
-## 5. Synthetic investigation scenario
-
-All records are fictional and deterministic: no production system, monitoring backend or customer environment is accessed.
-
-**Configured service:** `my_service`.
-
-| Timestamp (2026-11-02) | Simulated event |
-| --- | --- |
-| 12:00:00 | Previous deployment marked successful. |
-| 14:00:00 | New deployment marked failed; old deployment stopped. |
-| 14:00:20 | Warning about low disk space. |
-| 14:00:40 | Database authentication error. |
-| 14:00:45 | Service restart. |
-| 14:00:50 | Attempt to restore the old deployment fails, again citing database authentication. |
-
-The example metrics include **95% disk usage** and **`password_expires_in = 0`**. These measurements provide additional investigation clues.
-
-A defensible answer should treat a database credential problem as a **strong hypothesis**, not a conclusively proven root cause. High disk usage may be a concurrent risk. Temporal correlation with the deployment does not, by itself, prove that the deployment changed the database password.
-
-### Deliberate design choice: service lookup
-
-The author deliberately uses different lookup behavior in the mock tools: deployment and log tools validate the requested service through `get_service_by_name()`, while the metrics tool does not perform that same lookup. **This is an intentional architectural choice in the exercise, not an accidental omission.** Its underlying rationale is not documented here; readers should not infer that this difference is a universal production recommendation. In a real system, each tool's authority, source of truth and service-identity semantics would need to be specified and tested.
-
-## 6. Validation: what Pydantic does and does not guarantee
-
-Pydantic provides two distinct safeguards:
-
-1. **Field validation:** the returned JSON must contain fields of the expected types (for example, a recognized `ActionType`).
-2. **Cross-field validation:** `@model_validator(mode="after")` checks rules that depend on the selected action.
-
-The application catches `ValidationError` and asks the model to try again. Such retries count toward the step limit.
-
-However, **Pydantic validation is not equivalent to factual correctness, authorization or secure execution**. Also, Python-level `model_validator` logic is not automatically expressed by `model_json_schema()`; the model may still generate a JSON object that is syntactically valid but rejected by the runtime validator.
-
-The example includes schema information in natural-language instructions. It **does not enforce native API Structured Outputs**, and its prompt-described tools are **not native Function Calling**. These two distinctions matter when comparing the manual implementation with production-grade frameworks.
-
-## 7. Known risks and deliberate scope limitations
-
-> **Maintainer's note:** I am aware of the following risks and engineering trade-offs. They are documented openly because this repository is an educational demonstration of manual agent orchestration. Their presence **does not mean they are safe for production** or that mitigations have already been implemented. Some decisions, including the differing service-lookup behavior, are intentional and kept within the boundaries of the example.
-
-| Risk / limitation | Current demonstration | Production-oriented expectation |
-| --- | --- | --- |
-| **Prompt injection** | Tool outputs and log messages are included in model-visible text. Instructions tell the model to distrust them, but that is not a security boundary. | Treat external content as untrusted, enforce permissions in application code, and test malicious tool outputs. |
-| **Model-generated arguments** | The LLM proposes a tool name and a dictionary of string arguments. | Validate each tool's arguments against a typed schema and enforce limits before calling the function. |
-| **Tool execution errors** | The dispatcher handles unknown tools and some argument-related exceptions. Error classification is intentionally coarse. | Distinguish bad model input from tool implementation failures, infrastructure failures and retryable errors. |
-| **Broad exception handling** | The outer boundary catches unexpected exceptions and may return `None`. | Preserve exception details in diagnostics and return explicit, typed failure states. |
-| **Ambiguous termination** | Reaching the step limit yields no final diagnosis, represented by `None`. | Report explicit statuses such as `completed`, `max_steps_exceeded`, `invalid_output` or `failed`. |
-| **Cost and rate limits** | There is a fixed loop-step limit, but no complete token, cost, latency or retry budget. | Enforce timeouts, token/cost budgets, concurrency limits and bounded retries. |
-| **Structured outputs** | JSON is requested via instructions and validated after generation. | Consider API-enforced structured output when supported, with runtime validation retained. |
-| **Native tool protocol** | Tool dispatch is implemented through JSON actions and text messages. | Consider native Function Calling and correlated tool-call outputs. |
-| **Secrets and logs** | Environment secrets use `SecretStr`, but debug logs can contain prompts or tool results. | Redact sensitive values, avoid excessive logging and apply access controls and retention policies. |
-| **Conversation storage** | A conversation is created, reused and deleted through the API. | Design retention, deletion, audit and privacy controls explicitly; do not equate deleting a conversation object with guaranteed erasure of every related item. |
-| **Terminal-only interaction** | `input()` is used for follow-up questions. | Use an application-level pause/resume or approval mechanism in a web or distributed system. |
-| **Data correctness** | Synthetic records support learning; timestamps are naive datetimes and metrics are not fully range-constrained. | Use timezone-aware timestamps, validated metrics, consistent domain contracts and trusted monitoring data. |
-| **Testing** | The mock incident is repeatable, but this document makes no claim of an existing comprehensive test suite. | Add unit, integration, adversarial and evaluation tests, including negative and timeout scenarios. |
-
-**Two practical details in the current sample:**
-
-- The log tool converts `limit` from a string to an integer and uses list slicing; negative values, invalid integers and unexpectedly large values need a deliberate input policy.
-- `delete_conversation()` is called from `finally`; a cleanup failure can itself raise an exception and potentially obscure the main outcome. Cleanup errors need their own policy in production.
-
-## 8. Why this is not a production framework
-
-The purpose is **not** to build a replacement for Pydantic AI or OpenAI Agents SDK. The exercise intentionally exposes decisions that frameworks typically help manage: output validation, tool contracts, state transitions, retries, conversation state, observability and termination.
-
-There is no claim that the sample provides secure multi-tenancy, durable job execution, production authorization, independent incident verification or reliable automated root-cause analysis.
-
-The application is **read-only** in its intended tool design. It does not deploy changes, restart services, rotate credentials or perform rollbacks. Even read-only operations require authorization in real customer environments.
-
-## 9. How to run the demonstration
-
-From the project root, after installing the dependencies and configuring an API key:
-
-```bash
-task init:dev
-task run:module_01
-```
-
-The `.env` file must not be committed. Configure the settings required by `Module01Settings`, including `OPENAI_API_KEY` and `AI_MODEL`. API calls can incur charges, independently of a ChatGPT subscription.
-
-The module targets **Python 3.14**. For example, the following syntax is valid under [PEP 758](https://peps.python.org/pep-0758/):
-
-```python
-except TypeError, AttributeError, ValueError:
-    ...
-```
-
-Older Python versions require parentheses around the exception types.
-
-## 10. Suggested experiments for readers
-
-1. Make the model request an unknown tool and observe the dispatcher's response.
-2. Supply missing, non-numeric or negative `limit` values and observe the different error paths.
-3. Return an invalid JSON object and verify that the retry consumes the step budget.
-4. Inspect the context across several iterations and verify that prior evidence remains available.
-5. Inject misleading instructions into a synthetic log and confirm why prompt-only defenses are insufficient.
-6. Test what happens when API communication or conversation cleanup fails.
-7. Compare the manually written loop with an equivalent Pydantic AI agent in a later module.
-
-Readers are encouraged to implement and test their own solutions instead of copying a complete production abstraction into this module.
-
-## 11. Lessons learned
-
-- **An LLM proposes actions; application code executes them.**
-- **Conversation history is not optional** for multi-step reasoning across observations.
-- **An allowlist is necessary but not sufficient**: arguments, permissions and side effects still need validation.
-- **Structured data is not automatically trustworthy** just because it passed a schema.
-- **Every model call needs boundaries**, including retries after malformed responses.
-- **The right amount of AI is often less than expected**: deterministic rules should remain deterministic.
-- **Understanding the manual loop first** makes a higher-level framework easier to evaluate and use responsibly.
-
-## References
-
-- [OpenAI — Responses API](https://developers.openai.com/api/reference/resources/responses/methods/create)
-- [OpenAI — Conversation state](https://developers.openai.com/api/docs/guides/conversation-state)
-- [OpenAI — Conversations API](https://developers.openai.com/api/reference/resources/conversations/methods/create)
-- [Pydantic — Models and validation](https://pydantic.dev/docs/validation/latest/concepts/models/)
-- [Pydantic — JSON Schema](https://github.com/pydantic/pydantic/blob/main/docs/concepts/json_schema.md)
-- [Python — PEP 758](https://peps.python.org/pep-0758/)
+**[Vistware](https://vistware.com) · [OpenAI Responses API](https://developers.openai.com/api/docs/guides/conversation-state) · [Pydantic](https://docs.pydantic.dev/latest/)**
 
 ---
 
-**Vistware AI Agents Lab** · An educational exploration of agent engineering, architecture, reliability and security.
+## 1. Who is this guide for?
+
+This module is designed for Python developers who understand functions, exceptions, type annotations and HTTP APIs, but are new to building AI agents.
+
+You do **not** need experience with Pydantic AI, LangGraph or OpenAI Agents SDK. In fact, the point of this exercise is to understand what those frameworks usually do for you.
+
+### By the end, you should be able to explain
+
+- Why an LLM is **not** an agent by itself.
+- How a model proposes an action without executing Python code.
+- How an application validates and dispatches a tool call.
+- Why multi-step investigations require conversation state.
+- What Pydantic can validate, and what it cannot.
+- How an agent stops, retries, asks for input or fails.
+- Which design choices belong to the model and which must stay in application code.
+
+> **Learning philosophy:** Read, experiment, form a hypothesis, break something safely, and inspect what actually happened. This repository intentionally does not contain `AGENTS.md` because the exercises are intended to develop independent engineering judgment—not delegate the exercise to a coding agent.
+
+---
+
+## 2. Before writing code: do we even need an agent?
+
+Imagine three requests:
+
+| Request | Typical solution | Why |
+| --- | --- | --- |
+| “Calculate the number of overdue invoices.” | SQL + deterministic Python | Rules and expected output are well defined. |
+| “Summarize this incident report.” | A single LLM call | The model generates text, without taking actions. |
+| “Investigate why a service started returning HTTP 500 after deployment.” | Potentially an agent | Which evidence is needed may depend on what earlier tools reveal. |
+
+**Use an agent when adaptive decision-making adds value.** A multi-step task alone does not justify an agent; a conventional workflow is often cheaper, faster, safer and easier to reason about.
+
+This module uses the third scenario because it naturally invites decisions such as:
+
+1. Are deployment details needed?
+2. Should application logs be checked next?
+3. Do the logs justify checking metrics?
+4. Is there sufficient evidence for a diagnosis, or should we ask for clarification?
+
+The model can propose the sequence, but your Python application remains in charge of execution.
+
+### LLM, agent, runtime: three distinct concepts
+
+- **LLM:** produces a response from the information it receives.
+- **Agent:** a system that uses an LLM to decide what to do next, often with tools and repeated steps.
+- **Runtime (or orchestrator):** the software that calls the model, validates its decisions, runs permitted tools, manages state and enforces boundaries.
+
+**Key principle:** the model *requests* an action; the runtime *executes or rejects* it.
+
+---
+
+## 3. The demonstration: Vistware Incident Investigator
+
+A user reports:
+
+> After the latest deployment, the application started returning HTTP 500 errors. Investigate what might have gone wrong and provide a diagnosis.
+
+The investigator has access to three read-only **mock tools**:
+
+| Tool | Purpose |
+| --- | --- |
+| `get_recent_deployments(service)` | Retrieve the service's deployment history. |
+| `get_recent_logs(service, limit)` | Retrieve a limited number of application logs. |
+| `get_service_metrics(service)` | Retrieve synthetic operational measurements. |
+
+The tools return typed Pydantic models such as `RecentDeployment`, `LogEntry` and `ServiceMetric`. No production cluster, monitoring backend or real customer database is contacted.
+
+### Evidence the mock environment contains
+
+| Time on 2026-11-02 | Event / signal |
+| --- | --- |
+| 12:00:00 | Earlier deployment succeeded. |
+| 14:00:00 | New deployment is recorded as failed. |
+| 14:00:20 | A low-disk-space warning appears. |
+| 14:00:40 | Application log reports an invalid database password. |
+| 14:00:50 | Restoring the old deployment also fails with a database authentication error. |
+| 14:00:00 (metrics) | Disk usage is 95%; `password_expires_in` is `0`. |
+
+**How should we interpret this?** A database credential problem is strongly supported by the available evidence. But we cannot prove from these records alone that the deployment changed the password, nor that disk pressure caused the HTTP 500 responses. Good diagnostic output distinguishes evidence, interpretation and uncertainty.
+
+---
+
+## 4. Architecture: what happens inside a manual Agent Loop?
+
+```mermaid
+flowchart TD
+    U[User reports an incident] --> O[Manual agent runtime]
+    O --> M[OpenAI Responses API]
+    M --> V[Validate response with Pydantic]
+    V --> A{What action did the model propose?}
+    A -->|tool| W[Check tool allowlist and arguments]
+    W --> T[Execute Python tool]
+    T --> R[Add tool result to conversation]
+    R --> O
+    A -->|user_input| Q[Ask user a question in the CLI]
+    Q --> O
+    A -->|answer| D[Return the diagnosis]
+    V -->|invalid JSON or schema| E[Prepare validation feedback]
+    E --> O
+    O -->|step budget exhausted| F[Stop without final diagnosis]
+```
+
+The important distinction is **where each arrow runs**:
+
+- The **model** determines the next requested action.
+- **Pydantic** checks whether a response matches the expected data contract.
+- The **runtime** chooses which Python callable can actually execute.
+- The **tool** returns evidence to be considered in the next model step.
+- The **application** controls iteration limits and cleanup.
+
+### A model response is not executable code
+
+The manual approach in this module asks the model to produce a JSON object describing one of three actions. For illustration:
+
+```json
+{
+  "action": "tool",
+  "tool_name": "get_recent_logs",
+  "tool_args": {
+    "service": "my_service",
+    "limit": "7"
+  },
+  "output": null,
+  "reason": "Application logs may explain the new HTTP 500 errors."
+}
+```
+
+This JSON does **not** call `get_recent_logs` by itself. The Python runtime must interpret it, check the requested name against its registered functions and then invoke the function with validated arguments.
+
+This project uses **manual JSON-based tool dispatch** intentionally. It is **not the native OpenAI Function Calling protocol**. Native Function Calling uses separate tool-call and tool-result structures; we will compare these approaches with a framework in Module 02.
+
+---
+
+## 5. Explore the repository: responsibility by file
+
+The implementation for this lesson lives under `agents_lab/module_01/`.
+
+| File | What to look for | Question to ask yourself |
+| --- | --- | --- |
+| `main.py` | The CLI entry point and initial problem | Where does the investigation begin and end? |
+| `settings.py` | `BaseSettings`, `SecretStr`, model and logging config | Where are secrets loaded? |
+| `dependencies.py` | Logging initialization | Which setup belongs outside the agent? |
+| `clients.py` | OpenAI client and conversation lifecycle | Who owns an API conversation? |
+| `schemas.py` | Typed records and model action schema | Which invalid states can be rejected? |
+| `tools.py` | Synthetic diagnostic data and read-only functions | What can the model request, and what does it *not* control? |
+| `exceptions.py` | Domain-specific errors | What is a domain problem versus a runtime failure? |
+| `agents.py` | Manual loop, routing, retries and input handling | Where does model judgment stop and application control begin? |
+
+Shared utilities may live in `agents_lab/utils/`. The purpose of the separation is to make the data models, external API adapter, orchestration and diagnostic tools understandable independently.
+
+**A useful exercise:** before opening `agents.py`, try to draw the flow of one request using only the table above. Then compare your drawing with the actual control flow.
+
+---
+
+## 6. Run the example
+
+### Requirements
+
+- Python **3.14**
+- [`uv`](https://docs.astral.sh/uv/)
+- An OpenAI API key with access to a suitable model
+
+From the repository root:
+
+```bash
+uv python install 3.14
+uv sync
+```
+
+Create a local `.env` file based on the repository's example configuration. At minimum, `Module01Settings` expects:
+
+```dotenv
+OPENAI_API_KEY=replace_with_your_key
+AI_MODEL=openai:your-supported-model
+LOG_LEVEL=DEBUG
+```
+
+Use a **real supported model identifier** for `AI_MODEL`. The `openai:` prefix is a naming convention used by the sample configuration; the low-level OpenAI SDK requires the actual model ID.
+
+Run the lesson:
+
+```bash
+uv run --env-file .env python -m agents_lab.module_01.main
+```
+
+You should see debug information about agent steps, followed by either a diagnosis or an explicit message that the investigation did not produce one. Exact wording, tool choices and token usage may vary by model and run.
+
+**Do not commit `.env` or API credentials.** API calls can generate charges. A ChatGPT subscription does not by itself make general API usage free.
+
+---
+
+## 7. The core concepts, explained through the code
+
+### 7.1. Model output: `tool`, `user_input` or `answer`
+
+The first version of the runtime needs a small, explicit vocabulary for model decisions:
+
+| Action | Meaning | Runtime responsibility |
+| --- | --- | --- |
+| `tool` | “I need more evidence.” | Resolve and execute an approved function. |
+| `user_input` | “I need a missing piece of information.” | Ask the person using the CLI, then continue. |
+| `answer` | “I can now provide a diagnosis.” | Return the final explanation. |
+
+The action is represented by an enum, while a Pydantic model represents the associated fields. An action-specific validator rejects contradictory combinations.
+
+For example, `action="answer"` without a nonempty `output` should not be considered a meaningful finished result. A `tool` action should include a valid tool name and an arguments object.
+
+**What Pydantic guarantees:** field types and rules that you explicitly define.  
+**What Pydantic does not guarantee:** that the proposed tool is authorized, that a diagnostic conclusion is true or that a tool result is trustworthy.
+
+### 7.2. Why the tool allowlist matters
+
+The runtime maintains a mapping from approved names to Python functions. This is the boundary between a model suggestion and executable application code.
+
+Conceptually:
+
+```python
+allowed_tools = {
+    "get_recent_deployments": get_recent_deployments,
+    "get_recent_logs": get_recent_logs,
+    "get_service_metrics": get_service_metrics,
+}
+```
+
+A request for `delete_database` must **not** somehow resolve to an arbitrary Python function. Even if the model invented that name confidently, it does not become an available capability.
+
+However, an allowlist is only the beginning. The runtime must also consider argument validation, access control, side effects, rate limits and exception handling.
+
+### 7.3. Tool descriptions: how does the model know what exists?
+
+In this manual implementation, the runtime collects the functions' names and docstrings and includes them in instructions sent to the model. It also describes the expected returned data using Pydantic schemas.
+
+This is deliberately explicit so readers can see the contract being constructed. A higher-level framework often generates tool schemas from function signatures and docstrings automatically.
+
+**Engineering lesson:** clear tool names and precise argument descriptions reduce ambiguity, but descriptions are not a substitute for runtime validation.
+
+### 7.4. `instructions` versus `input`
+
+The example uses the Responses API with two conceptually different pieces of information:
+
+- **`instructions`:** how the investigator should behave—its role, scope, available actions and expected response shape.
+- **`input`:** what the model should consider on the current step—the incident report, a tool result, validation feedback or a user's clarification.
+
+The demo sends stable instructions with each API call. It does not rely on an implicit, permanently installed system prompt.
+
+### 7.5. Conversation state: why the original problem must survive
+
+A common early bug in manual agent loops looks like this:
+
+1. The model receives the initial incident report.
+2. A tool runs.
+3. The next model request contains **only** the most recent tool output.
+4. The model no longer has guaranteed access to the original user goal or earlier evidence.
+
+The example addresses that by creating an OpenAI conversation and passing its ID on subsequent Responses API requests.
+
+A shortened illustration:
+
+```python
+conversation = client.conversations.create()
+
+response = client.responses.create(
+    model=model_name,
+    instructions=agent_instructions,
+    input=current_input,
+    conversation=conversation.id,
+)
+```
+
+The **conversation object** is a way to maintain history across calls; it is not a Python function call, and it does not replace application-level authorization or state management.
+
+**Important:** the example sends tool results as ordinary text input. It is not using native, call-ID-correlated `function_call_output` messages. That distinction matters for provenance, clarity and robust orchestration.
+
+### 7.6. Validation failure: repair or stop?
+
+The model may return malformed JSON, omit a required field or produce an inconsistent combination of action and data. Pydantic raises `ValidationError` when validation fails.
+
+The educational runtime can send validation feedback back to the model and ask it to try again. **Every attempt must consume the execution budget**, including attempts that fail to produce a valid response.
+
+Otherwise a simple `continue` can turn a bounded loop into an effectively unbounded sequence of paid API calls.
+
+### 7.7. When does the agent stop?
+
+The manual loop terminates when:
+
+- the model returns an `answer` action;
+- the step budget is exhausted;
+- an unrecoverable error occurs.
+
+The terminal `user_input` action is a **CLI interaction**: the program waits for a person to type a value. It is not a distributed, durable human-in-the-loop workflow.
+
+The educational example may return `None` when no diagnosis is reached. Production systems should distinguish reasons such as `max_steps_exceeded`, `tool_failed`, `invalid_response` and `completed`.
+
+### 7.8. Resource lifecycle
+
+A conversation is created lazily, reused during an investigation and has a cleanup path. This is useful for understanding ownership of remote resources.
+
+However, deleting a conversation object should **not** be equated with proving that every associated record has been erased from every location. Retention and deletion semantics must be checked against current provider documentation and the needs of the application.
+
+---
+
+## 8. Read the diagnosis critically
+
+Given the synthetic evidence, a useful investigation might conclude:
+
+> The evidence strongly suggests a database authentication problem. The service logs report an invalid database password and the password-expiry metric is zero. A failed rollback appears to be affected by the same issue. Disk usage is also high, but available logs do not establish it as the cause of the HTTP 500 responses.
+
+This is an **illustrative interpretation**, not a guaranteed model output.
+
+Before accepting any automated diagnosis, ask:
+
+- **Evidence:** Which specific log line or metric supports the claim?
+- **Causality:** Is the explanation established, or merely correlated with an event?
+- **Alternatives:** Could another condition produce the same symptoms?
+- **Missing signals:** What evidence would confirm or reject the suspected cause?
+- **Action safety:** Is the suggested next step safe, authorized and reversible?
+
+A fluent answer is not necessarily a correct answer. Agent engineering includes designing ways to tell the difference.
+
+---
+
+## 9. Known limitations and security risks — acknowledged deliberately
+
+> **Maintainer's note**  
+> This module is an educational demonstration of **manual agent orchestration**. I am aware of the following risks and limitations. They are disclosed intentionally so learners understand the engineering trade-offs. Documenting them does **not** mean they are solved, safe to ignore or acceptable in a real customer environment.
+
+| Area | What this lesson demonstrates | What a production design would also need |
+| --- | --- | --- |
+| **Prompt injection** | Log contents are returned to the model, and instructions tell it not to follow embedded commands. | Enforced trust boundaries, authorization and adversarial evaluation; prompts alone are not protection. |
+| **Tool allowlisting** | A fixed registry prevents arbitrary tool names from resolving. | Per-user/tenant access checks, strict typed arguments and limits before executing functions. |
+| **Tool argument errors** | Basic handling of missing or invalid arguments. | Per-tool validation and a distinction between bad model input and internal tool defects. |
+| **Untrusted conclusions** | Pydantic validates structure, not diagnostic truth. | Evidence verification, uncertainty reporting and domain-specific review. |
+| **JSON via prompting** | Instructions request a JSON action, validated after generation. | API-enforced Structured Outputs where suitable, plus application-side validation. |
+| **Manual tool protocol** | Python interprets `action="tool"` and a dictionary of arguments. | Native Function Calling and correlated results where appropriate. |
+| **Unbounded execution/cost** | A maximum number of loop iterations, including validation retries. | Additional request/token/cost/time budgets, throttling and bounded retry policies. |
+| **Errors and termination** | Simple exception handling; a non-answer can become `None`. | Explicit failure states, monitoring, actionable diagnostics and reliable cleanup. |
+| **Conversation and privacy** | A conversation is created, reused and deleted via the API. | Intentional storage/retention policies, PII handling, data residency review and deletion semantics. |
+| **Secrets and debug logs** | `SecretStr` protects the secret's ordinary representation. | Redaction of prompt/tool contents, secure access to logs and disciplined secret lifecycle. |
+| **Human interaction** | `input()` allows clarification in a terminal. | Nonblocking pause/resume, approval workflows and durable state in services or workers. |
+| **Mock data** | Read-only functions return synthetic records. | Real source-of-truth contracts, error handling, timezone-aware timestamps and auditability. |
+| **Testing** | Deterministic data makes manual comparison easier. | Automated tests, adversarial inputs, regression evaluations and behavior monitoring. |
+
+### Two subtle risks worth investigating
+
+**1. A valid Python type is not always a valid domain value.** A log `limit` may be an integer but still be negative or unreasonably large. Similarly, `cpu_usage=200` is a float but not a meaningful percentage. Domain constraints need explicit validation.
+
+**2. Cleanup can fail too.** If deleting a remote conversation raises an exception inside `finally`, that exception may obscure the main investigation result. A robust system defines a separate cleanup-error policy.
+
+The sample uses no production credentials beyond the local API key needed to contact the model. It must never be connected to real customer systems without a fresh security and architecture review.
+
+---
+
+## 10. Six hands-on experiments
+
+Try these locally using only synthetic data. You will learn more by observing the failures than by copying a completed implementation.
+
+### Exercise 1 — Unknown tool
+
+Make a model response request a function that is **not** present in the registry.
+
+**Observe:** Does the application reject the request? Can the model recover? Is any unexpected code executed?
+
+### Exercise 2 — Invalid arguments
+
+Try missing arguments, `limit="abc"`, `limit="-1"` and a very large limit.
+
+**Observe:** Which errors are caught? Which invalid inputs are silently accepted by Python?
+
+### Exercise 3 — Malformed JSON
+
+Cause the model response to fail the Pydantic schema.
+
+**Observe:** Does the next attempt consume one step? What happens when all steps are used?
+
+### Exercise 4 — Context loss
+
+Compare a loop that sends only the latest tool result against one that preserves the full conversation.
+
+**Observe:** Can the model relate evidence from multiple tools to the original user request?
+
+### Exercise 5 — Suspicious log content
+
+Insert a **synthetic** log line that contains an instruction aimed at the model, unrelated to the incident.
+
+**Observe:** Does the agent distinguish evidence from instructions? Why would prompt-only defenses still be insufficient?
+
+### Exercise 6 — Incomplete evidence
+
+Remove the database-password error and leave only the failed deployment and low-disk warning.
+
+**Observe:** Does the agent express uncertainty, or does it confidently invent the same root cause?
+
+> **Success criterion:** You should be able to explain *why* a behavior occurred in terms of the runtime, prompt, state, schema, tools or input data—not merely whether the response sounded plausible.
+
+---
+
+## 11. Common questions
+
+**Is this native OpenAI Function Calling?**  
+No. The module intentionally implements a simple tool protocol through the model's JSON responses. OpenAI also offers native Function Calling, and higher-level frameworks can manage it for you.
+
+**Does adding a tool's docstring make the model execute it?**  
+No. In this module the docstring is described to the model, but Python still needs to map the proposed tool name to an approved callable.
+
+**Does a Pydantic schema prevent hallucinations?**  
+No. It can reject malformed or inconsistent data structures, not guarantee that an explanation is factually supported.
+
+**Why not implement this entire system with SQL and conventional Python?**  
+If the decision path is completely known, that may be preferable. Here we deliberately study a case where the next diagnostic action can depend on earlier observations.
+
+**Why not start directly with Pydantic AI?**  
+Because seeing the manual mechanics makes it easier to understand—and critically evaluate—the abstractions provided by Pydantic AI in the next module.
+
+**Is this code ready to investigate real systems?**  
+No. It is a controlled demonstration with synthetic tools and documented limitations.
+
+---
+
+## 12. What changes in Module 02?
+
+In the next lesson, we implement the same kind of incident investigator with **Pydantic AI**.
+
+| Manual implementation (Module 01) | Framework implementation (Module 02) |
+| --- | --- |
+| Application writes the action-dispatch loop | Framework manages the agent loop |
+| Tool descriptions are assembled into instructions | Framework builds tool schemas from registered functions |
+| Model emits a custom `action` JSON object | Model uses native tool calling through the framework |
+| Pydantic manually parses each action response | Framework validates tool arguments and final output |
+| Application manages the manual conversation lifecycle | Framework provides history and execution mechanisms |
+| Developer implements loop error paths | Framework provides dedicated retry and error mechanisms |
+
+**The point is not that frameworks make the difficult decisions disappear.** They reduce orchestration boilerplate. The engineer still owns security, permissions, data contracts, operational behavior and whether an agent is appropriate in the first place.
+
+---
+
+## 13. Further reading
+
+These references explain the underlying APIs and Python concepts used in this exercise:
+
+- [OpenAI — Responses API](https://developers.openai.com/api/reference/responses/overview)
+- [OpenAI — Conversation state](https://developers.openai.com/api/docs/guides/conversation-state)
+- [OpenAI — Conversations API](https://developers.openai.com/api/reference/resources/conversations/methods/create)
+- [OpenAI — Function Calling](https://developers.openai.com/api/docs/guides/function-calling)
+- [OpenAI — Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
+- [Pydantic — Models](https://docs.pydantic.dev/latest/concepts/models/)
+- [Pydantic — Validators](https://docs.pydantic.dev/latest/concepts/validators/)
+- [Python 3.14 — PEP 758 (multiple exceptions without parentheses)](https://peps.python.org/pep-0758/)
+- [uv — Documentation](https://docs.astral.sh/uv/)
+
+---
+
+## Takeaway
+
+A useful mental model is:
+
+> **The model proposes. The application validates. The tools execute. The evidence returns. The loop continues—within limits.**
+
+If you understand each part of that sentence, you understand the foundations of an AI agent runtime.
+
+*Vistware AI Agents Lab — learn how the abstractions work before relying on them.*
