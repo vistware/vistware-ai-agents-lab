@@ -23,6 +23,7 @@ connection settings in `.env`. Each task loads environment variables from `.env`
 task run:module_00  # Module 00: check the model connection
 task run:module_01  # Module 01: implement manual agent
 task run:module_02  # Module 02: implement first pydantic agent
+task run:module_03  # Module 03: RunContext, Dependency Injection, and Trust Boundaries
 ```
 
 Run module 00 to check the connection to the OpenAPI model before continuing
