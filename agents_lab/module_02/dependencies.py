@@ -1,5 +1,6 @@
-from agents_lab.module_02.settings import module_settings
 from agents_lab.utils.logging_ import configure_logging
+
+from .settings import module_settings
 
 
 def project_init() -> None:
