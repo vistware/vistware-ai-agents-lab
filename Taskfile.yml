@@ -96,3 +96,8 @@ tasks:
     desc: Run the main script for module 03
     cmds:
       - uv run --env-file .env python -m agents_lab.module_03.main
+
+  run:module_04:
+    desc: Run the main script for module 04
+    cmds:
+      - uv run --env-file .env python -m agents_lab.module_04.main
