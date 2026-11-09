@@ -25,6 +25,7 @@ task run:module_01  # Module 01: implement manual agent
 task run:module_02  # Module 02: implement first pydantic agent
 task run:module_03  # Module 03: RunContext, Dependency Injection, and Trust Boundaries
 task run:module_04  # Module 04: Conversation History, Context, and Persistence
+task run:module_05  # Module 05 — Error Handling and Recovery in Pydantic AI
 ```
 
 Run module 00 to check the connection to the OpenAPI model before continuing

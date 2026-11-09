@@ -1,0 +1,51 @@
+ID,Service,Severity,Status,created_at,description
+INC-001,payments,medium,open,Sun Nov 01 2026 22:33:32 GMT+0100 (Central European Standard Time),Intermittent payment status synchronization delays affect a subset of transactions.
+INC-002,identity,critical,open,Mon Nov 02 2026 19:27:11 GMT+0100 (Central European Standard Time),Token validation failures prevent users from accessing all services.
+INC-003,orders,high,open,Thu Nov 05 2026 16:09:37 GMT+0100 (Central European Standard Time),Order fulfillment messages are significantly delayed.
+INC-004,orders,high,open,Tue Nov 03 2026 08:25:51 GMT+0100 (Central European Standard Time),Order fulfillment messages are significantly delayed.
+INC-005,orders,critical,open,Tue Nov 03 2026 11:50:48 GMT+0100 (Central European Standard Time),Order creation is unavailable for all customers.
+INC-006,payments,low,open,Sun Nov 01 2026 22:12:56 GMT+0100 (Central European Standard Time),Payment history displays stale transaction labels for a few users.
+INC-007,orders,high,resolved,Sun Nov 01 2026 09:15:00 GMT+0100 (Central European Standard Time),Order fulfillment messages are significantly delayed.
+INC-008,identity,critical,open,Wed Nov 04 2026 23:54:09 GMT+0100 (Central European Standard Time),Authentication service is unavailable for all users.
+INC-009,identity,low,open,Thu Nov 05 2026 05:44:55 GMT+0100 (Central European Standard Time),Login audit records are delayed in the reporting dashboard.
+INC-010,payments,critical,resolved,Wed Nov 04 2026 01:39:32 GMT+0100 (Central European Standard Time),Payment processing is unavailable across all checkout flows.
+INC-011,orders,low,resolved,Thu Nov 05 2026 21:58:25 GMT+0100 (Central European Standard Time),Order history occasionally shows outdated delivery estimates.
+INC-012,payments,critical,open,Tue Nov 03 2026 06:55:37 GMT+0100 (Central European Standard Time),Payment gateway connection failures block all card transactions.
+INC-013,orders,critical,resolved,Wed Nov 04 2026 23:41:02 GMT+0100 (Central European Standard Time),Order database connection failures block checkout and order retrieval.
+INC-014,orders,critical,resolved,Wed Nov 04 2026 13:51:15 GMT+0100 (Central European Standard Time),Order database connection failures block checkout and order retrieval.
+INC-015,identity,medium,resolved,Tue Nov 03 2026 13:57:52 GMT+0100 (Central European Standard Time),Some users experience slow session refresh requests.
+INC-016,payments,low,open,Tue Nov 03 2026 16:22:21 GMT+0100 (Central European Standard Time),Payment history displays stale transaction labels for a few users.
+INC-017,orders,medium,resolved,Thu Nov 05 2026 23:27:27 GMT+0100 (Central European Standard Time),Intermittent inventory synchronization delays affect a subset of orders.
+INC-018,payments,high,open,Mon Nov 02 2026 20:35:07 GMT+0100 (Central European Standard Time),Payment confirmations are delayed for many transactions.
+INC-019,identity,medium,open,Wed Nov 04 2026 07:55:54 GMT+0100 (Central European Standard Time),Some users experience slow session refresh requests.
+INC-020,orders,medium,open,Thu Nov 05 2026 20:22:16 GMT+0100 (Central European Standard Time),Intermittent inventory synchronization delays affect a subset of orders.
+INC-021,payments,low,resolved,Wed Nov 04 2026 09:55:51 GMT+0100 (Central European Standard Time),Receipt delivery is slightly delayed for some completed payments.
+INC-022,payments,low,open,Wed Nov 04 2026 15:56:18 GMT+0100 (Central European Standard Time),Receipt delivery is slightly delayed for some completed payments.
+INC-023,identity,high,open,Thu Nov 05 2026 06:09:16 GMT+0100 (Central European Standard Time),Login requests intermittently fail with server errors.
+INC-024,payments,medium,resolved,Wed Nov 04 2026 14:06:00 GMT+0100 (Central European Standard Time),Some refund requests require additional processing time.
+INC-025,orders,critical,resolved,Thu Nov 05 2026 12:36:24 GMT+0100 (Central European Standard Time),Order database connection failures block checkout and order retrieval.
+INC-026,orders,low,resolved,Mon Nov 02 2026 14:22:43 GMT+0100 (Central European Standard Time),Order confirmation emails are slightly delayed.
+INC-027,payments,high,open,Tue Nov 03 2026 12:38:11 GMT+0100 (Central European Standard Time),A large number of card payments fail during authorization.
+INC-028,orders,low,resolved,Thu Nov 05 2026 06:35:14 GMT+0100 (Central European Standard Time),Order history occasionally shows outdated delivery estimates.
+INC-029,orders,critical,open,Wed Nov 04 2026 06:45:34 GMT+0100 (Central European Standard Time),Order database connection failures block checkout and order retrieval.
+INC-030,payments,medium,resolved,Tue Nov 03 2026 11:07:33 GMT+0100 (Central European Standard Time),Intermittent payment status synchronization delays affect a subset of transactions.
+INC-031,identity,high,resolved,Thu Nov 05 2026 07:05:27 GMT+0100 (Central European Standard Time),Password reset emails are delayed for many users.
+INC-032,identity,low,open,Wed Nov 04 2026 09:29:23 GMT+0100 (Central European Standard Time),Profile updates occasionally require a second attempt.
+INC-033,payments,high,open,Tue Nov 03 2026 11:15:35 GMT+0100 (Central European Standard Time),Payment confirmations are delayed for many transactions.
+INC-034,payments,medium,resolved,Mon Nov 02 2026 04:06:17 GMT+0100 (Central European Standard Time),Intermittent payment status synchronization delays affect a subset of transactions.
+INC-035,identity,high,resolved,Tue Nov 03 2026 18:39:29 GMT+0100 (Central European Standard Time),Login requests intermittently fail with server errors.
+INC-036,orders,critical,open,Wed Nov 04 2026 16:30:59 GMT+0100 (Central European Standard Time),Order creation is unavailable for all customers.
+INC-037,payments,low,open,Thu Nov 05 2026 20:42:14 GMT+0100 (Central European Standard Time),Payment history displays stale transaction labels for a few users.
+INC-038,identity,high,resolved,Mon Nov 02 2026 09:58:14 GMT+0100 (Central European Standard Time),Login requests intermittently fail with server errors.
+INC-039,payments,high,resolved,Tue Nov 03 2026 20:34:27 GMT+0100 (Central European Standard Time),A large number of card payments fail during authorization.
+INC-040,identity,high,resolved,Sun Nov 01 2026 09:32:24 GMT+0100 (Central European Standard Time),Login requests intermittently fail with server errors.
+INC-041,identity,critical,resolved,Mon Nov 02 2026 03:40:24 GMT+0100 (Central European Standard Time),Authentication service is unavailable for all users.
+INC-042,payments,critical,open,Sun Nov 01 2026 18:09:37 GMT+0100 (Central European Standard Time),Payment processing is unavailable across all checkout flows.
+INC-043,identity,critical,open,Mon Nov 02 2026 12:00:29 GMT+0100 (Central European Standard Time),Authentication service is unavailable for all users.
+INC-044,payments,high,open,Sun Nov 01 2026 10:32:18 GMT+0100 (Central European Standard Time),A large number of card payments fail during authorization.
+INC-045,orders,high,resolved,Sun Nov 01 2026 20:43:08 GMT+0100 (Central European Standard Time),Order fulfillment messages are significantly delayed.
+INC-046,payments,critical,open,Thu Nov 05 2026 12:31:37 GMT+0100 (Central European Standard Time),Payment gateway connection failures block all card transactions.
+INC-047,identity,medium,resolved,Wed Nov 04 2026 01:05:08 GMT+0100 (Central European Standard Time),Some users experience slow session refresh requests.
+INC-048,payments,low,open,Wed Nov 04 2026 02:24:14 GMT+0100 (Central European Standard Time),Payment history displays stale transaction labels for a few users.
+INC-049,orders,critical,resolved,Thu Nov 05 2026 06:56:43 GMT+0100 (Central European Standard Time),Order creation is unavailable for all customers.
+INC-050,orders,high,resolved,Sun Nov 01 2026 18:22:25 GMT+0100 (Central European Standard Time),Order fulfillment messages are significantly delayed.
