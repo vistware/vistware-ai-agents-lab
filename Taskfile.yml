@@ -111,3 +111,8 @@ tasks:
     desc: Run the main script for module 06
     cmds:
       - uv run --env-file .env python -m agents_lab.module_06.main
+
+  run:module_07:prepare-knowledge-data:
+    desc: Run the prepare knowledge data flow for module 07
+    cmds:
+      - uv run --env-file .env python -m agents_lab.module_07.main prepare-knowledge-data
