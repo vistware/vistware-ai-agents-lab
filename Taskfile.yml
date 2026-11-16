@@ -116,3 +116,8 @@ tasks:
     desc: Run the prepare knowledge data flow for module 07
     cmds:
       - uv run --env-file .env python -m agents_lab.module_07.main prepare-knowledge-data
+
+  run:module_07:embed-knowledge:
+    desc: Run the embed knowledge flow for module 07
+    cmds:
+      - uv run --env-file .env python -m agents_lab.module_07.main embed-knowledge

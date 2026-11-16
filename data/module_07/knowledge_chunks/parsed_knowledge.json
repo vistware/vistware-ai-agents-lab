@@ -62,7 +62,7 @@
                 }
             }
         ],
-        "is_updated_or_new": true,
+        "is_updated_or_new": false,
         "created_at": "2026-11-15T14:53:22.202522Z"
     },
     "incident-escalation.md": {
@@ -129,7 +129,7 @@
                 }
             }
         ],
-        "is_updated_or_new": true,
+        "is_updated_or_new": false,
         "created_at": "2026-11-15T14:53:22.203040Z"
     },
     "payments-idempotency.md": {
@@ -195,7 +195,7 @@
                 }
             }
         ],
-        "is_updated_or_new": true,
+        "is_updated_or_new": false,
         "created_at": "2026-11-15T14:53:22.204610Z"
     },
     "identity-redis-outage.md": {
@@ -261,7 +261,7 @@
                 }
             }
         ],
-        "is_updated_or_new": true,
+        "is_updated_or_new": false,
         "created_at": "2026-11-15T14:53:22.204859Z"
     },
     "identity-session-management.md": {
@@ -327,7 +327,7 @@
                 }
             }
         ],
-        "is_updated_or_new": true,
+        "is_updated_or_new": false,
         "created_at": "2026-11-15T14:53:22.205169Z"
     },
     "payments-kafka-consumer-lag.md": {
@@ -393,7 +393,7 @@
                 }
             }
         ],
-        "is_updated_or_new": true,
+        "is_updated_or_new": false,
         "created_at": "2026-11-15T14:53:22.205392Z"
     },
     "identity-jwt-validation.md": {
@@ -459,7 +459,7 @@
                 }
             }
         ],
-        "is_updated_or_new": true,
+        "is_updated_or_new": false,
         "created_at": "2026-11-15T14:53:22.205581Z"
     },
     "notifications-retry-policy.md": {
@@ -535,7 +535,7 @@
                 }
             }
         ],
-        "is_updated_or_new": true,
+        "is_updated_or_new": false,
         "created_at": "2026-11-15T14:53:22.205808Z"
     },
     "payments-database-timeout.md": {
@@ -601,7 +601,7 @@
                 }
             }
         ],
-        "is_updated_or_new": true,
+        "is_updated_or_new": false,
         "created_at": "2026-11-15T14:53:22.206028Z"
     },
     "orders-deployment-failure.md": {
@@ -667,7 +667,7 @@
                 }
             }
         ],
-        "is_updated_or_new": true,
+        "is_updated_or_new": false,
         "created_at": "2026-11-15T14:53:22.206260Z"
     }
 }

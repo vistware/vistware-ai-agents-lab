@@ -1,43 +1,21 @@
 import hashlib
 import json
 from collections.abc import Generator
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
-from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownHeaderTextSplitter
-from pydantic import BaseModel
 
 from agents_lab.utils.time_ import get_current_utc_time
 
 from ..settings import module_settings
-
-
-class KnowledgeSourceFile(BaseModel):
-    path: Path
-    hash: str
-
-
-class ChunkedKnowledgeFile(BaseModel):
-    chunks: list[Document]
-    source_file: KnowledgeSourceFile
-
-
-class ParsedKnowledgeChunk(BaseModel):
-    chunk_id: str
-    content: str
-    metadata: dict[str, Any]
-
-
-class ParsedKnowledgeFile(BaseModel):
-    name: str
-    path: str
-    hash: str
-    content: list[ParsedKnowledgeChunk]
-    is_updated_or_new: bool
-    created_at: datetime
+from .schemas import (
+    ChunkedKnowledgeFile,
+    KnowledgeSourceFile,
+    ParsedKnowledgeChunk,
+    ParsedKnowledgeFile,
+)
+from .utils import load_parsed_knowledge_files
 
 
 def compute_file_hash(file_path: Path) -> str:
@@ -53,7 +31,9 @@ def compute_file_hash(file_path: Path) -> str:
 
 @dataclass
 class KnowledgeFileScanner:
-    knowledge_dir: Path = module_settings.INC_KNOWLEDGE_DIR
+    knowledge_dir: Path = field(
+        default_factory=lambda: module_settings.INC_KNOWLEDGE_DIR
+    )
 
     def scan(self) -> Generator[KnowledgeSourceFile]:
         for file_path in self.knowledge_dir.glob("**/*.md"):
@@ -93,14 +73,12 @@ class ParsedKnowledgeWriter:
         self._stored_files = {}
 
     def _load_existing_files(self) -> None:
-        with module_settings.INC_PARSED_KNOWLEDGE_FILE.open("r") as file:
-            stored_data = json.load(file)
-        self._stored_files = {
-            name: ParsedKnowledgeFile.model_validate(data)
-            for name, data in stored_data.items()
-        }
+        self._stored_files = load_parsed_knowledge_files()
 
     def _save_files(self) -> None:
+        module_settings.INC_PARSED_KNOWLEDGE_FILE.parent.mkdir(
+            parents=True, exist_ok=True
+        )
         serialized_files = {
             key: value.model_dump(mode="json")
             for key, value in self._stored_files.items()
