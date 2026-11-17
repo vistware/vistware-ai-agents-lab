@@ -2,10 +2,9 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from pydantic_ai import Embedder
-
 from agents_lab.module_07.settings import module_settings
 
+from .embedder import embedder
 from .schemas import EmbeddedKnowledgeChunk, ParsedKnowledgeFile
 from .utils import load_embedded_knowledge_chunks, load_parsed_knowledge_files
 
@@ -13,7 +12,7 @@ from .utils import load_embedded_knowledge_chunks, load_parsed_knowledge_files
 @dataclass
 class KnowledgeEmbedder:
     def __post_init__(self) -> None:
-        self._embedder = Embedder(model=module_settings.EMBEDDER_MODEL)
+        self._embedder = embedder
         self._parsed_files: dict[str, ParsedKnowledgeFile] = {}
         self._embedded_chunks: dict[str, EmbeddedKnowledgeChunk] = {}
 

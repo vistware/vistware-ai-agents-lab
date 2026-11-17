@@ -121,3 +121,8 @@ tasks:
     desc: Run the embed knowledge flow for module 07
     cmds:
       - uv run --env-file .env python -m agents_lab.module_07.main embed-knowledge
+
+  run:module_07:retrieve-knowledge:
+    desc: Run the retrieve knowledge flow for module 07
+    cmds:
+      - uv run --env-file .env python -m agents_lab.module_07.main retrieve-knowledge
