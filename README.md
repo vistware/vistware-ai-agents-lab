@@ -32,6 +32,24 @@ task run:module_06  # Module 06: Context Optimization in Pydantic AI
 Run module 00 to check the connection to the OpenAPI model before continuing
 with the trainee exercises.
 
+Module 07 builds and searches a knowledge base for incident investigation.
+Run the first two commands when source documents are added, edited, or deleted,
+and when upgrading an index that predates embedding model metadata.
+
+```sh
+task run:module_07:parse-knowledge              # Split Markdown into chunks
+task run:module_07:embed-knowledge              # Synchronize the embedding index
+task run:module_07:search-knowledge             # Search the knowledge base interactively
+task run:module_07:demo-incident-investigator   # Run the agent on sample questions
+```
+
+The demo lists the validated source chunk IDs and flags questions that the
+documentation cannot answer.
+
+Changing `EMBEDDER_MODEL` rebuilds the index on the next embedding run. To
+regenerate all vectors with the current model, run
+`task run:module_07:embed-knowledge -- --rebuild`.
+
 ## Development tasks
 
 Run all checks:

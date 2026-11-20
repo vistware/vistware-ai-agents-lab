@@ -62,8 +62,206 @@
                 }
             }
         ],
-        "is_updated_or_new": false,
-        "created_at": "2026-11-15T14:53:22.202522Z"
+        "created_at": "2026-11-18T20:43:48.397305Z",
+        "chunking_version": 1
+    },
+    "identity-jwt-validation.md": {
+        "name": "identity-jwt-validation.md",
+        "path": "data/module_07/knowledge/identity-jwt-validation.md",
+        "hash": "727f77345c9c6bd83bb4acca8a23fa9e0c516ffda56c8518d964d4db9fbafb4c",
+        "content": [
+            {
+                "chunk_id": "identity-jwt-validation.md_0",
+                "content": "This fictional incident record describes `SYN-ID-241` in the Harbor microservices system. All identifiers, measurements, and events are invented. On 2025-04-08, `identity-core` began signing access tokens with key identifier `sig-r32` at 09:10 UTC. Several API services continued accepting older tokens but rejected newly issued tokens for eighteen minutes.  \nAccess tokens are signed JWTs with an eight-minute lifetime. Services validate the issuer, audience, expiry, and signature using a cached JSON Web Key Set, abbreviated JWKS. A successful signature check does not establish that the associated user session remains active.",
+                "metadata": {
+                    "title": "JWT Validation Failures After Signing Key Rotation",
+                    "section": "Overview"
+                }
+            },
+            {
+                "chunk_id": "identity-jwt-validation.md_1",
+                "content": "- Protected requests returned HTTP 401 with `AUTH-JWT-013` and reason `unknown_kid`.\n- Newly signed-in users failed immediately, while some existing sessions continued working until their next token refresh.\n- The `jwt_unknown_key_total` counter increased only on replicas using the older JWKS cache generation.\n- Session-store connectivity and token issuance latency remained normal.  \nThe same browser displayed a generic \u201cPlease sign in again\u201d message for both this failure and ordinary session expiry. The response reason and validation stage were therefore more useful than the visible message.",
+                "metadata": {
+                    "title": "JWT Validation Failures After Signing Key Rotation",
+                    "section": "Observed Symptoms"
+                }
+            },
+            {
+                "chunk_id": "identity-jwt-validation.md_2",
+                "content": "The new public key was published at the same time that signing switched to `sig-r32`. Validators used `JWKS_CACHE_TTL_SECONDS=3600` and did not refresh their cache when they encountered an unknown key identifier. Replicas that had fetched keys before 09:10 could not validate the new signatures.  \nResponders confirmed the cause by comparing the published key identifiers with each replica's cache metadata. Both `sig-r31` and `sig-r32` were present in the published JWKS; affected replicas held only `sig-r31`. This was a key-discovery failure, not evidence that a private signing key had leaked.",
+                "metadata": {
+                    "title": "JWT Validation Failures After Signing Key Rotation",
+                    "section": "Confirmed Root Cause"
+                }
+            },
+            {
+                "chunk_id": "identity-jwt-validation.md_3",
+                "content": "Clock drift and an incorrect audience were considered initially. Recorded clock offsets remained below two seconds, and sampled audience values matched the configured audience. Neither hypothesis explained the selective `unknown_kid` errors. No evidence established malicious token forgery.",
+                "metadata": {
+                    "title": "JWT Validation Failures After Signing Key Rotation",
+                    "section": "Confirmed Root Cause",
+                    "subsection": "Unverified Hypotheses"
+                }
+            },
+            {
+                "chunk_id": "identity-jwt-validation.md_4",
+                "content": "1. Record the failing request's correlation identifier, service replica, error reason, and token `kid`. Do not copy the bearer token into incident notes.\n2. Compare the `kid` with the published public-key inventory and the replica's cached inventory.\n3. Check issuer, audience, `exp`, and clock offset separately. An expired token should produce `token_expired`, not `unknown_kid`.\n4. If signature validation succeeds, continue with [session lifecycle diagnostics](identity-session-management.md) or the [Redis outage procedure](identity-redis-outage.md), depending on the session lookup result.",
+                "metadata": {
+                    "title": "JWT Validation Failures After Signing Key Rotation",
+                    "section": "Diagnostic Procedure"
+                }
+            },
+            {
+                "chunk_id": "identity-jwt-validation.md_5",
+                "content": "Responders verified the public-key inventory and invalidated JWKS caches through the controlled cache-refresh operation. They confirmed that every replica loaded `sig-r32` before resuming the rotation schedule. Signature checks and session checks remained enabled throughout recovery.  \nSynthetic sign-in, refresh, and protected-resource requests succeeded across all replicas by 09:28 UTC. The incident was marked recovered after fifteen minutes without another `AUTH-JWT-013` failure.",
+                "metadata": {
+                    "title": "JWT Validation Failures After Signing Key Rotation",
+                    "section": "Resolution and Verification"
+                }
+            },
+            {
+                "chunk_id": "identity-jwt-validation.md_6",
+                "content": "Publish a replacement public key at least seventy minutes before activating its signer, covering the sixty-minute cache lifetime and a ten-minute margin. Retain the previous public key for at least the eight-minute token lifetime plus sixty seconds of permitted clock skew after its final issuance. Record both deadlines in the rotation checklist.  \nUse the [escalation procedure](incident-escalation.md) if authentication failures become widespread. Changing session idle limits does not resolve an unknown signing key.",
+                "metadata": {
+                    "title": "JWT Validation Failures After Signing Key Rotation",
+                    "section": "Prevention and Related Incidents"
+                }
+            }
+        ],
+        "created_at": "2026-11-18T20:43:48.397765Z",
+        "chunking_version": 1
+    },
+    "identity-redis-outage.md": {
+        "name": "identity-redis-outage.md",
+        "path": "data/module_07/knowledge/identity-redis-outage.md",
+        "hash": "851148e5bd282093aae6cdd61a737791a24632fb00e82edfc484b1fcea7e0a89",
+        "content": [
+            {
+                "chunk_id": "identity-redis-outage.md_0",
+                "content": "This fictional runbook covers incident `SYN-ID-259` in the Harbor microservices system. All names, observations, and configuration revisions are synthetic. `identity-core` uses Redis deployment `session-store` for session metadata and refresh-token rotation records. Protected requests require both a valid access JWT and a successful active-session check.  \nOn 2025-06-11, session lookups failed even though access-token signatures remained valid. New sign-ins, token renewal, and protected account requests were affected. Public catalog browsing continued because it did not require a user session.",
+                "metadata": {
+                    "title": "Redis Unavailability During Session Validation",
+                    "section": "Overview"
+                }
+            },
+            {
+                "chunk_id": "identity-redis-outage.md_1",
+                "content": "The identity service returned HTTP 503 with `SESSION-STORE-UNAVAILABLE`. Its session lookup latency reached the 250-millisecond connection deadline, and `session_store_connect_failures_total` increased across every identity replica. One older gateway revision translated this dependency failure into a generic HTTP 401, so some users saw an inaccurate sign-in prompt.  \nRedis reported normal memory use and no increase in evictions. A diagnostic workload outside the identity deployment could connect successfully. This did not prove that identity replicas had the same network access.",
+                "metadata": {
+                    "title": "Redis Unavailability During Session Validation",
+                    "section": "Observed Symptoms"
+                }
+            },
+            {
+                "chunk_id": "identity-redis-outage.md_2",
+                "content": "Network policy revision `session-access-v18` allowed incoming Redis connections from workloads labeled `app=identity-edge`. Actual identity workloads carried `app=identity-core`. The policy therefore removed their access while leaving the Redis process healthy.  \nResponders compared the effective policy selectors with identity workload labels. Connectivity failed from an affected identity replica and succeeded after restoring the previous policy. This evidence confirmed a network authorization error, rather than Redis memory exhaustion or expired session records.",
+                "metadata": {
+                    "title": "Redis Unavailability During Session Validation",
+                    "section": "Confirmed Root Cause"
+                }
+            },
+            {
+                "chunk_id": "identity-redis-outage.md_3",
+                "content": "A Redis leader failure and a signing-key rotation problem were suggested but unsupported by role metrics and JWT validation results. Four refresh requests lost their responses near the policy transition. Whether their rotations committed before connectivity was interrupted remained unknown until reconciliation; a connection failure alone did not establish the outcome.",
+                "metadata": {
+                    "title": "Redis Unavailability During Session Validation",
+                    "section": "Confirmed Root Cause",
+                    "subsection": "Unknowns and Unverified Hypotheses"
+                }
+            },
+            {
+                "chunk_id": "identity-redis-outage.md_4",
+                "content": "1. Separate signature validation from session lookup in the request trace. `unknown_kid` requires the [JWT rotation procedure](identity-jwt-validation.md), not a Redis restart.\n2. Check Redis role, memory, eviction count, and connection metrics. Test connectivity from the actual identity workload context.\n3. Compare workload labels, network policy revisions, and the start of connection failures. Avoid treating a successful operator diagnostic connection as universal reachability.\n4. Distinguish a completed lookup returning no session from an unavailable lookup. The former can justify `session_expired`; the latter requires a dependency error.",
+                "metadata": {
+                    "title": "Redis Unavailability During Session Validation",
+                    "section": "Diagnostic Procedure"
+                }
+            },
+            {
+                "chunk_id": "identity-redis-outage.md_5",
+                "content": "The platform responder restored `session-access-v17`, then verified connections from every identity replica. The gateway operator corrected the legacy error mapping to preserve HTTP 503 for unavailable session storage. Signature checks and active-session enforcement remained enabled.  \nResponders did not restore an old Redis snapshot, because that could reintroduce revoked sessions. They inspected rotation records for the four uncertain refresh requests and required fresh sign-in where the current token family could not be established safely.",
+                "metadata": {
+                    "title": "Redis Unavailability During Session Validation",
+                    "section": "Resolution and Recovery"
+                }
+            },
+            {
+                "chunk_id": "identity-redis-outage.md_6",
+                "content": "Recovery required successful sign-in, refresh, protected access, and revoked-session rejection across all replicas, followed by fifteen minutes without connection failures. The policy release checklist now includes a connectivity check from the selected application identity.  \nUse [session management](identity-session-management.md) for idle expiration and replay handling. The gateway's [rate-limit store](gateway-rate-limiting.md) is a separate Redis deployment; resetting its buckets cannot restore identity sessions. Follow [incident escalation](incident-escalation.md) for widespread authentication disruption.",
+                "metadata": {
+                    "title": "Redis Unavailability During Session Validation",
+                    "section": "Verification and Related Procedures"
+                }
+            }
+        ],
+        "created_at": "2026-11-18T20:43:48.398132Z",
+        "chunking_version": 1
+    },
+    "identity-session-management.md": {
+        "name": "identity-session-management.md",
+        "path": "data/module_07/knowledge/identity-session-management.md",
+        "hash": "c5ff785bc95b1aee5dab56b3655e6da14543b2505acaa3a2ea78b3bc991077c9",
+        "content": [
+            {
+                "chunk_id": "identity-session-management.md_0",
+                "content": "This fictional runbook covers browser authentication in the Harbor microservices system and incident `SYN-ID-248`. All service names, policies, and observations are synthetic. `identity-core` issues eight-minute access JWTs and rotating refresh tokens. Session metadata resides in the Redis deployment named `session-store`.  \nA session expires after thirty minutes without authenticated activity or twelve hours after sign-in, whichever comes first. Each refresh token has a seven-day expiry, but it cannot extend those session limits. A cryptographically valid access token is rejected when its referenced session has expired or been revoked.",
+                "metadata": {
+                    "title": "Session Expiration and Refresh Token Failures",
+                    "section": "Overview"
+                }
+            },
+            {
+                "chunk_id": "identity-session-management.md_1",
+                "content": "During `SYN-ID-248`, users with several browser tabs saw intermittent sign-outs shortly after a successful refresh. Protected requests returned HTTP 401 with `AUTH-SESSION-021`; refresh requests reported `refresh_replayed`. Other users received `session_expired` after leaving a tab inactive overnight, which was expected behavior.  \nThe incident affected twelve percent of active synthetic browser sessions. Redis latency remained below four milliseconds, and JWT signature checks succeeded. Repeating sign-in temporarily restored access until another concurrent refresh occurred.",
+                "metadata": {
+                    "title": "Session Expiration and Refresh Token Failures",
+                    "section": "Observed Symptoms"
+                }
+            },
+            {
+                "chunk_id": "identity-session-management.md_2",
+                "content": "Two browser tabs submitted the same single-use refresh token with different `refresh_attempt_id` values. The first request rotated the token. The second looked like reuse of an already consumed credential and revoked the refresh-token family, including the current session.  \nAn identical retry carrying the same attempt identifier is permitted for three seconds and returns the previously recorded rotation result. That allowance did not apply because each tab generated its own identifier. Correlated rotation records confirmed this ordering; ordinary access-token expiration did not cause the family revocation.",
+                "metadata": {
+                    "title": "Session Expiration and Refresh Token Failures",
+                    "section": "Confirmed Root Cause"
+                }
+            },
+            {
+                "chunk_id": "identity-session-management.md_3",
+                "content": "Responders initially suspected cookie loss and session-store eviction. Browser diagnostics showed the cookie was present, and Redis eviction counters did not increase. The record does not establish whether every reported sign-out shared the refresh race; four reports lacked correlation identifiers and remain unclassified.",
+                "metadata": {
+                    "title": "Session Expiration and Refresh Token Failures",
+                    "section": "Confirmed Root Cause",
+                    "subsection": "Unverified Hypotheses"
+                }
+            },
+            {
+                "chunk_id": "identity-session-management.md_4",
+                "content": "1. Identify whether the failing operation is access validation, token renewal, or session lookup. Capture reason codes without recording cookies or refresh-token values.\n2. Check the session's creation time, last authenticated activity, and revocation reason. Distinguish idle expiration from the absolute twelve-hour limit.\n3. Compare rotation sequence numbers, attempt identifiers, and timestamps across tabs. A consumed token followed by family revocation supports replay detection.\n4. Check for HTTP 429 responses before investigating token lifetime. A refresh loop may trigger the separate [gateway quota](gateway-rate-limiting.md).\n5. If session lookup times out, follow the [Redis outage runbook](identity-redis-outage.md). A missing signing key instead requires [JWT validation diagnostics](identity-jwt-validation.md).",
+                "metadata": {
+                    "title": "Session Expiration and Refresh Token Failures",
+                    "section": "Diagnostic Procedure"
+                }
+            },
+            {
+                "chunk_id": "identity-session-management.md_5",
+                "content": "The browser team restored the previous release, which coordinated renewal through a single refresh owner across tabs. Transport retries retained their original attempt identifier. Responders did not disable replay detection or increase session lifetimes.  \nUsers whose token families were already revoked had to sign in again. Sessions that reached their idle or absolute deadline also required new authentication; refreshing the page could not revive them. After rollback, a twenty-minute multi-tab exercise completed without unintended family revocation.",
+                "metadata": {
+                    "title": "Session Expiration and Refresh Token Failures",
+                    "section": "Resolution"
+                }
+            },
+            {
+                "chunk_id": "identity-session-management.md_6",
+                "content": "Monitor `refresh_family_revoked_total` separately from expected `session_expired` responses. Exercise concurrent tabs, delayed responses, and lost refresh acknowledgments before releasing browser authentication changes. Treat an unavailable session backend as a dependency failure rather than proof that the user supplied an invalid password.  \nFor broad login disruption, apply the [incident severity rules](incident-escalation.md). Keep unresolved reports explicitly separate from sessions whose revocation sequence has been confirmed.",
+                "metadata": {
+                    "title": "Session Expiration and Refresh Token Failures",
+                    "section": "Prevention and Operational Notes"
+                }
+            }
+        ],
+        "created_at": "2026-11-18T20:43:48.398412Z",
+        "chunking_version": 1
     },
     "incident-escalation.md": {
         "name": "incident-escalation.md",
@@ -129,338 +327,8 @@
                 }
             }
         ],
-        "is_updated_or_new": false,
-        "created_at": "2026-11-15T14:53:22.203040Z"
-    },
-    "payments-idempotency.md": {
-        "name": "payments-idempotency.md",
-        "path": "data/module_07/knowledge/payments-idempotency.md",
-        "hash": "f90e3489cb6b5664948b63289f7a62d92e8fe6fba3ab1bceb0e00a9ec4514d27",
-        "content": [
-            {
-                "chunk_id": "payments-idempotency.md_0",
-                "content": "This fictional runbook covers duplicate-request handling in the Harbor microservices system and incident `SYN-PAY-338`. Every identifier, retention period, and outcome is invented. `payments-api` requires an `Idempotency-Key` for payment submission. The key identifies one intended operation, not one network attempt.  \nRecords reside in PostgreSQL alongside the payment ledger, independently of the identity service's Redis session store. Their uniqueness scope is merchant identifier, operation type, and key. A browser-generated key such as `demo-purchase-028-attempt-a` is only a synthetic example, not an authentication credential.",
-                "metadata": {
-                    "title": "Duplicate Payment Requests and Idempotency Keys",
-                    "section": "Overview"
-                }
-            },
-            {
-                "chunk_id": "payments-idempotency.md_1",
-                "content": "During `SYN-PAY-338`, customers retried checkout after an HTTP 504 and later saw two captures for one purchase reference. Ledger reconciliation confirmed duplicate captures for two synthetic purchases. Other reports involved repeated receipt messages without repeated ledger captures.  \nThe API recorded different idempotency keys for the confirmed duplicate requests. Several same-key retries instead returned HTTP 202 because the original operation was still processing; this response alone was not a duplicate-payment failure.",
-                "metadata": {
-                    "title": "Duplicate Payment Requests and Idempotency Keys",
-                    "section": "Observed Symptoms"
-                }
-            },
-            {
-                "chunk_id": "payments-idempotency.md_2",
-                "content": "A client release generated a new key whenever it retried a timed-out submission. Two original requests had committed before their responses were lost. Their retries used different keys and were admitted as new operations, producing additional captures.  \nThe uniqueness constraint behaved as configured. It prevented duplicate execution within a key's scope but did not merge different keys merely because they shared a purchase reference. The client retry policy was the confirmed defect for the two reconciled purchases.",
-                "metadata": {
-                    "title": "Duplicate Payment Requests and Idempotency Keys",
-                    "section": "Confirmed Root Cause"
-                }
-            },
-            {
-                "chunk_id": "payments-idempotency.md_3",
-                "content": "Kafka redelivery and notification duplication were considered separately. No replayed command caused the two confirmed extra captures. Two other purchase references remained under reconciliation because adapter acknowledgments were unavailable. Exposure was bounded to at most one additional capture per reference; their final financial outcomes remained unknown.",
-                "metadata": {
-                    "title": "Duplicate Payment Requests and Idempotency Keys",
-                    "section": "Confirmed Root Cause",
-                    "subsection": "Unverified Hypotheses and Unresolved Outcomes"
-                }
-            },
-            {
-                "chunk_id": "payments-idempotency.md_4",
-                "content": "- Missing key: reject with HTTP 400 and `PAY-IDEM-400` before admitting work.\n- Same key and canonical payload while processing: return HTTP 202 with `PAY-IDEM-202` and `Retry-After=2`.\n- Same key and payload after completion: return the stored terminal result without another capture.\n- Same key with changed canonical payload: return HTTP 409 and `PAY-IDEM-409`; do not overwrite the existing record.  \nCanonical payload comparison includes `amount_minor`, currency, and `purchase_ref`; transport trace identifiers are excluded. Terminal success and decline records remain for twenty-four hours after completion. Processing or uncertain records do not expire automatically while reconciliation is open. After terminal-record expiry, reusing an old key may admit new work and requires checking the durable purchase ledger first.",
-                "metadata": {
-                    "title": "Duplicate Payment Requests and Idempotency Keys",
-                    "section": "Request Handling Rules"
-                }
-            },
-            {
-                "chunk_id": "payments-idempotency.md_5",
-                "content": "1. Collect purchase reference, operation identifier, key, payload fingerprint, and response status without recording payment instrument details.\n2. Compare keys and fingerprints across attempts. Trace a timeout through the ledger rather than assuming rollback.\n3. Keep the original key and payload for retries within retention. For uncertain or expired records, pause automatic resubmission and assign the reconciliation owner.\n4. Preserve the original operation identifier when handling Kafka redelivery. Commit command offsets only after durable ledger progress.  \nResponders restored stable client keys and reconciled the two confirmed extra captures through the standard reversal workflow. Repeated concurrent submissions with one key then produced one financial operation in a controlled exercise.",
-                "metadata": {
-                    "title": "Duplicate Payment Requests and Idempotency Keys",
-                    "section": "Diagnostic and Resolution Procedure"
-                }
-            },
-            {
-                "chunk_id": "payments-idempotency.md_6",
-                "content": "Combine [database timeout diagnostics](payments-database-timeout.md) with this runbook when a client cannot determine whether submission committed. Use [consumer lag recovery](payments-kafka-consumer-lag.md) for pending commands and [notification deduplication](notifications-retry-policy.md) for repeated receipts. Apply the [escalation rules](incident-escalation.md) immediately for confirmed duplicate captures or unbounded financial exposure.",
-                "metadata": {
-                    "title": "Duplicate Payment Requests and Idempotency Keys",
-                    "section": "Related Incidents"
-                }
-            }
-        ],
-        "is_updated_or_new": false,
-        "created_at": "2026-11-15T14:53:22.204610Z"
-    },
-    "identity-redis-outage.md": {
-        "name": "identity-redis-outage.md",
-        "path": "data/module_07/knowledge/identity-redis-outage.md",
-        "hash": "851148e5bd282093aae6cdd61a737791a24632fb00e82edfc484b1fcea7e0a89",
-        "content": [
-            {
-                "chunk_id": "identity-redis-outage.md_0",
-                "content": "This fictional runbook covers incident `SYN-ID-259` in the Harbor microservices system. All names, observations, and configuration revisions are synthetic. `identity-core` uses Redis deployment `session-store` for session metadata and refresh-token rotation records. Protected requests require both a valid access JWT and a successful active-session check.  \nOn 2025-06-11, session lookups failed even though access-token signatures remained valid. New sign-ins, token renewal, and protected account requests were affected. Public catalog browsing continued because it did not require a user session.",
-                "metadata": {
-                    "title": "Redis Unavailability During Session Validation",
-                    "section": "Overview"
-                }
-            },
-            {
-                "chunk_id": "identity-redis-outage.md_1",
-                "content": "The identity service returned HTTP 503 with `SESSION-STORE-UNAVAILABLE`. Its session lookup latency reached the 250-millisecond connection deadline, and `session_store_connect_failures_total` increased across every identity replica. One older gateway revision translated this dependency failure into a generic HTTP 401, so some users saw an inaccurate sign-in prompt.  \nRedis reported normal memory use and no increase in evictions. A diagnostic workload outside the identity deployment could connect successfully. This did not prove that identity replicas had the same network access.",
-                "metadata": {
-                    "title": "Redis Unavailability During Session Validation",
-                    "section": "Observed Symptoms"
-                }
-            },
-            {
-                "chunk_id": "identity-redis-outage.md_2",
-                "content": "Network policy revision `session-access-v18` allowed incoming Redis connections from workloads labeled `app=identity-edge`. Actual identity workloads carried `app=identity-core`. The policy therefore removed their access while leaving the Redis process healthy.  \nResponders compared the effective policy selectors with identity workload labels. Connectivity failed from an affected identity replica and succeeded after restoring the previous policy. This evidence confirmed a network authorization error, rather than Redis memory exhaustion or expired session records.",
-                "metadata": {
-                    "title": "Redis Unavailability During Session Validation",
-                    "section": "Confirmed Root Cause"
-                }
-            },
-            {
-                "chunk_id": "identity-redis-outage.md_3",
-                "content": "A Redis leader failure and a signing-key rotation problem were suggested but unsupported by role metrics and JWT validation results. Four refresh requests lost their responses near the policy transition. Whether their rotations committed before connectivity was interrupted remained unknown until reconciliation; a connection failure alone did not establish the outcome.",
-                "metadata": {
-                    "title": "Redis Unavailability During Session Validation",
-                    "section": "Confirmed Root Cause",
-                    "subsection": "Unknowns and Unverified Hypotheses"
-                }
-            },
-            {
-                "chunk_id": "identity-redis-outage.md_4",
-                "content": "1. Separate signature validation from session lookup in the request trace. `unknown_kid` requires the [JWT rotation procedure](identity-jwt-validation.md), not a Redis restart.\n2. Check Redis role, memory, eviction count, and connection metrics. Test connectivity from the actual identity workload context.\n3. Compare workload labels, network policy revisions, and the start of connection failures. Avoid treating a successful operator diagnostic connection as universal reachability.\n4. Distinguish a completed lookup returning no session from an unavailable lookup. The former can justify `session_expired`; the latter requires a dependency error.",
-                "metadata": {
-                    "title": "Redis Unavailability During Session Validation",
-                    "section": "Diagnostic Procedure"
-                }
-            },
-            {
-                "chunk_id": "identity-redis-outage.md_5",
-                "content": "The platform responder restored `session-access-v17`, then verified connections from every identity replica. The gateway operator corrected the legacy error mapping to preserve HTTP 503 for unavailable session storage. Signature checks and active-session enforcement remained enabled.  \nResponders did not restore an old Redis snapshot, because that could reintroduce revoked sessions. They inspected rotation records for the four uncertain refresh requests and required fresh sign-in where the current token family could not be established safely.",
-                "metadata": {
-                    "title": "Redis Unavailability During Session Validation",
-                    "section": "Resolution and Recovery"
-                }
-            },
-            {
-                "chunk_id": "identity-redis-outage.md_6",
-                "content": "Recovery required successful sign-in, refresh, protected access, and revoked-session rejection across all replicas, followed by fifteen minutes without connection failures. The policy release checklist now includes a connectivity check from the selected application identity.  \nUse [session management](identity-session-management.md) for idle expiration and replay handling. The gateway's [rate-limit store](gateway-rate-limiting.md) is a separate Redis deployment; resetting its buckets cannot restore identity sessions. Follow [incident escalation](incident-escalation.md) for widespread authentication disruption.",
-                "metadata": {
-                    "title": "Redis Unavailability During Session Validation",
-                    "section": "Verification and Related Procedures"
-                }
-            }
-        ],
-        "is_updated_or_new": false,
-        "created_at": "2026-11-15T14:53:22.204859Z"
-    },
-    "identity-session-management.md": {
-        "name": "identity-session-management.md",
-        "path": "data/module_07/knowledge/identity-session-management.md",
-        "hash": "c5ff785bc95b1aee5dab56b3655e6da14543b2505acaa3a2ea78b3bc991077c9",
-        "content": [
-            {
-                "chunk_id": "identity-session-management.md_0",
-                "content": "This fictional runbook covers browser authentication in the Harbor microservices system and incident `SYN-ID-248`. All service names, policies, and observations are synthetic. `identity-core` issues eight-minute access JWTs and rotating refresh tokens. Session metadata resides in the Redis deployment named `session-store`.  \nA session expires after thirty minutes without authenticated activity or twelve hours after sign-in, whichever comes first. Each refresh token has a seven-day expiry, but it cannot extend those session limits. A cryptographically valid access token is rejected when its referenced session has expired or been revoked.",
-                "metadata": {
-                    "title": "Session Expiration and Refresh Token Failures",
-                    "section": "Overview"
-                }
-            },
-            {
-                "chunk_id": "identity-session-management.md_1",
-                "content": "During `SYN-ID-248`, users with several browser tabs saw intermittent sign-outs shortly after a successful refresh. Protected requests returned HTTP 401 with `AUTH-SESSION-021`; refresh requests reported `refresh_replayed`. Other users received `session_expired` after leaving a tab inactive overnight, which was expected behavior.  \nThe incident affected twelve percent of active synthetic browser sessions. Redis latency remained below four milliseconds, and JWT signature checks succeeded. Repeating sign-in temporarily restored access until another concurrent refresh occurred.",
-                "metadata": {
-                    "title": "Session Expiration and Refresh Token Failures",
-                    "section": "Observed Symptoms"
-                }
-            },
-            {
-                "chunk_id": "identity-session-management.md_2",
-                "content": "Two browser tabs submitted the same single-use refresh token with different `refresh_attempt_id` values. The first request rotated the token. The second looked like reuse of an already consumed credential and revoked the refresh-token family, including the current session.  \nAn identical retry carrying the same attempt identifier is permitted for three seconds and returns the previously recorded rotation result. That allowance did not apply because each tab generated its own identifier. Correlated rotation records confirmed this ordering; ordinary access-token expiration did not cause the family revocation.",
-                "metadata": {
-                    "title": "Session Expiration and Refresh Token Failures",
-                    "section": "Confirmed Root Cause"
-                }
-            },
-            {
-                "chunk_id": "identity-session-management.md_3",
-                "content": "Responders initially suspected cookie loss and session-store eviction. Browser diagnostics showed the cookie was present, and Redis eviction counters did not increase. The record does not establish whether every reported sign-out shared the refresh race; four reports lacked correlation identifiers and remain unclassified.",
-                "metadata": {
-                    "title": "Session Expiration and Refresh Token Failures",
-                    "section": "Confirmed Root Cause",
-                    "subsection": "Unverified Hypotheses"
-                }
-            },
-            {
-                "chunk_id": "identity-session-management.md_4",
-                "content": "1. Identify whether the failing operation is access validation, token renewal, or session lookup. Capture reason codes without recording cookies or refresh-token values.\n2. Check the session's creation time, last authenticated activity, and revocation reason. Distinguish idle expiration from the absolute twelve-hour limit.\n3. Compare rotation sequence numbers, attempt identifiers, and timestamps across tabs. A consumed token followed by family revocation supports replay detection.\n4. Check for HTTP 429 responses before investigating token lifetime. A refresh loop may trigger the separate [gateway quota](gateway-rate-limiting.md).\n5. If session lookup times out, follow the [Redis outage runbook](identity-redis-outage.md). A missing signing key instead requires [JWT validation diagnostics](identity-jwt-validation.md).",
-                "metadata": {
-                    "title": "Session Expiration and Refresh Token Failures",
-                    "section": "Diagnostic Procedure"
-                }
-            },
-            {
-                "chunk_id": "identity-session-management.md_5",
-                "content": "The browser team restored the previous release, which coordinated renewal through a single refresh owner across tabs. Transport retries retained their original attempt identifier. Responders did not disable replay detection or increase session lifetimes.  \nUsers whose token families were already revoked had to sign in again. Sessions that reached their idle or absolute deadline also required new authentication; refreshing the page could not revive them. After rollback, a twenty-minute multi-tab exercise completed without unintended family revocation.",
-                "metadata": {
-                    "title": "Session Expiration and Refresh Token Failures",
-                    "section": "Resolution"
-                }
-            },
-            {
-                "chunk_id": "identity-session-management.md_6",
-                "content": "Monitor `refresh_family_revoked_total` separately from expected `session_expired` responses. Exercise concurrent tabs, delayed responses, and lost refresh acknowledgments before releasing browser authentication changes. Treat an unavailable session backend as a dependency failure rather than proof that the user supplied an invalid password.  \nFor broad login disruption, apply the [incident severity rules](incident-escalation.md). Keep unresolved reports explicitly separate from sessions whose revocation sequence has been confirmed.",
-                "metadata": {
-                    "title": "Session Expiration and Refresh Token Failures",
-                    "section": "Prevention and Operational Notes"
-                }
-            }
-        ],
-        "is_updated_or_new": false,
-        "created_at": "2026-11-15T14:53:22.205169Z"
-    },
-    "payments-kafka-consumer-lag.md": {
-        "name": "payments-kafka-consumer-lag.md",
-        "path": "data/module_07/knowledge/payments-kafka-consumer-lag.md",
-        "hash": "a4382299a104fa095afe6f8a73ef07096beac0ee4ad58e056125f4fcb53990ac",
-        "content": [
-            {
-                "chunk_id": "payments-kafka-consumer-lag.md_0",
-                "content": "This fictional incident record describes `SYN-PAY-317` in the Harbor microservices system. Every event, identifier, and measurement is invented. `payments-api` accepts asynchronous payment requests and returns HTTP 202 after durable admission. The `payments-worker` service consumes commands from Kafka topic `payment.commands.v2`, using consumer group `payment-executors` across twelve partitions.  \nOn 2025-05-12, accepted payments remained pending while checkout requests continued succeeding. This runbook concerns delayed execution after admission; a successful HTTP 202 does not mean that money has been captured.",
-                "metadata": {
-                    "title": "Kafka Consumer Lag and Delayed Payment Processing",
-                    "section": "Overview"
-                }
-            },
-            {
-                "chunk_id": "payments-kafka-consumer-lag.md_1",
-                "content": "Consumer lag reached 18,400 records, and the oldest pending command was twenty-four minutes old. Customers saw \u201cPayment processing\u201d for longer than the normal two-minute target. The group repeatedly logged `PAY-CONSUMER-REBALANCE`, and partition ownership moved among three worker replicas.  \nDatabase pool acquisition stayed below twenty milliseconds. Broker storage utilization and produce acknowledgment latency remained normal. These observations distinguished the backlog from the [database timeout incident](payments-database-timeout.md), which disrupted request handling before clients received a reliable outcome.",
-                "metadata": {
-                    "title": "Kafka Consumer Lag and Delayed Payment Processing",
-                    "section": "Observed Symptoms"
-                }
-            },
-            {
-                "chunk_id": "payments-kafka-consumer-lag.md_2",
-                "content": "A worker performed a blocking risk-service call while processing a batch of up to 1,000 records. Its `RISK_CHECK_TIMEOUT_MS=360000` exceeded `MAX_POLL_INTERVAL_MS=300000`. A single slow risk assessment could therefore prevent the next poll for longer than the group allowed.  \nThe broker removed that consumer, reassigned its partitions, and replayed commands whose offsets had not been committed. Trace timestamps showed six-minute waits immediately before each membership loss. Increasing replicas alone did not remove this blocking call.",
-                "metadata": {
-                    "title": "Kafka Consumer Lag and Delayed Payment Processing",
-                    "section": "Confirmed Root Cause"
-                }
-            },
-            {
-                "chunk_id": "payments-kafka-consumer-lag.md_3",
-                "content": "The reason for the risk-service delay remained unknown when this record was closed. A network interruption and an overloaded risk-service dependency were hypotheses without sufficient trace evidence. Responders did not classify either as a confirmed downstream outage. Broker capacity exhaustion was investigated but unsupported by the collected metrics.",
-                "metadata": {
-                    "title": "Kafka Consumer Lag and Delayed Payment Processing",
-                    "section": "Confirmed Root Cause",
-                    "subsection": "Unknown and Unverified Causes"
-                }
-            },
-            {
-                "chunk_id": "payments-kafka-consumer-lag.md_4",
-                "content": "1. Measure lag per partition and oldest-command age. Aggregate lag alone can hide one stalled partition.\n2. Compare group membership changes with poll intervals and worker traces. Identify which processing stage holds the batch.\n3. Check database checkout time and durable ledger progress before attributing every pending payment to Kafka.\n4. Inspect the command's payment identifier and idempotency record before replaying it. A repeated Kafka delivery can refer to an already completed capture.",
-                "metadata": {
-                    "title": "Kafka Consumer Lag and Delayed Payment Processing",
-                    "section": "Diagnostic Procedure"
-                }
-            },
-            {
-                "chunk_id": "payments-kafka-consumer-lag.md_5",
-                "content": "Responders applied the established worker profile: `RISK_CHECK_TIMEOUT_MS=5000` and `MAX_POLL_RECORDS=50`. Timed-out assessments were recorded durably as deferred work before transfer to `payment.risk-retry.v1`. The worker acknowledged an original command only after the corresponding ledger state was durable.  \nWith poll stability restored, operators increased workers from three to six within the twelve-partition limit. They avoided resetting offsets to the topic beginning. The backlog drained in thirty-one minutes; recovery required oldest-command age below two minutes and stable membership for fifteen minutes.",
-                "metadata": {
-                    "title": "Kafka Consumer Lag and Delayed Payment Processing",
-                    "section": "Resolution and Recovery"
-                }
-            },
-            {
-                "chunk_id": "payments-kafka-consumer-lag.md_6",
-                "content": "Alert on command age as well as offset distance. Exercise a slow risk assessment during worker release checks and compare processing deadlines with the poll limit.  \nUse [payment idempotency rules](payments-idempotency.md) when reconciling redelivered commands. Send delayed customer updates through the [notification retry procedure](notifications-retry-policy.md), preserving the original event identity. Follow the [escalation runbook](incident-escalation.md) if pending age exceeds fifteen minutes across multiple partitions.",
-                "metadata": {
-                    "title": "Kafka Consumer Lag and Delayed Payment Processing",
-                    "section": "Prevention and Related Procedures"
-                }
-            }
-        ],
-        "is_updated_or_new": false,
-        "created_at": "2026-11-15T14:53:22.205392Z"
-    },
-    "identity-jwt-validation.md": {
-        "name": "identity-jwt-validation.md",
-        "path": "data/module_07/knowledge/identity-jwt-validation.md",
-        "hash": "727f77345c9c6bd83bb4acca8a23fa9e0c516ffda56c8518d964d4db9fbafb4c",
-        "content": [
-            {
-                "chunk_id": "identity-jwt-validation.md_0",
-                "content": "This fictional incident record describes `SYN-ID-241` in the Harbor microservices system. All identifiers, measurements, and events are invented. On 2025-04-08, `identity-core` began signing access tokens with key identifier `sig-r32` at 09:10 UTC. Several API services continued accepting older tokens but rejected newly issued tokens for eighteen minutes.  \nAccess tokens are signed JWTs with an eight-minute lifetime. Services validate the issuer, audience, expiry, and signature using a cached JSON Web Key Set, abbreviated JWKS. A successful signature check does not establish that the associated user session remains active.",
-                "metadata": {
-                    "title": "JWT Validation Failures After Signing Key Rotation",
-                    "section": "Overview"
-                }
-            },
-            {
-                "chunk_id": "identity-jwt-validation.md_1",
-                "content": "- Protected requests returned HTTP 401 with `AUTH-JWT-013` and reason `unknown_kid`.\n- Newly signed-in users failed immediately, while some existing sessions continued working until their next token refresh.\n- The `jwt_unknown_key_total` counter increased only on replicas using the older JWKS cache generation.\n- Session-store connectivity and token issuance latency remained normal.  \nThe same browser displayed a generic \u201cPlease sign in again\u201d message for both this failure and ordinary session expiry. The response reason and validation stage were therefore more useful than the visible message.",
-                "metadata": {
-                    "title": "JWT Validation Failures After Signing Key Rotation",
-                    "section": "Observed Symptoms"
-                }
-            },
-            {
-                "chunk_id": "identity-jwt-validation.md_2",
-                "content": "The new public key was published at the same time that signing switched to `sig-r32`. Validators used `JWKS_CACHE_TTL_SECONDS=3600` and did not refresh their cache when they encountered an unknown key identifier. Replicas that had fetched keys before 09:10 could not validate the new signatures.  \nResponders confirmed the cause by comparing the published key identifiers with each replica's cache metadata. Both `sig-r31` and `sig-r32` were present in the published JWKS; affected replicas held only `sig-r31`. This was a key-discovery failure, not evidence that a private signing key had leaked.",
-                "metadata": {
-                    "title": "JWT Validation Failures After Signing Key Rotation",
-                    "section": "Confirmed Root Cause"
-                }
-            },
-            {
-                "chunk_id": "identity-jwt-validation.md_3",
-                "content": "Clock drift and an incorrect audience were considered initially. Recorded clock offsets remained below two seconds, and sampled audience values matched the configured audience. Neither hypothesis explained the selective `unknown_kid` errors. No evidence established malicious token forgery.",
-                "metadata": {
-                    "title": "JWT Validation Failures After Signing Key Rotation",
-                    "section": "Confirmed Root Cause",
-                    "subsection": "Unverified Hypotheses"
-                }
-            },
-            {
-                "chunk_id": "identity-jwt-validation.md_4",
-                "content": "1. Record the failing request's correlation identifier, service replica, error reason, and token `kid`. Do not copy the bearer token into incident notes.\n2. Compare the `kid` with the published public-key inventory and the replica's cached inventory.\n3. Check issuer, audience, `exp`, and clock offset separately. An expired token should produce `token_expired`, not `unknown_kid`.\n4. If signature validation succeeds, continue with [session lifecycle diagnostics](identity-session-management.md) or the [Redis outage procedure](identity-redis-outage.md), depending on the session lookup result.",
-                "metadata": {
-                    "title": "JWT Validation Failures After Signing Key Rotation",
-                    "section": "Diagnostic Procedure"
-                }
-            },
-            {
-                "chunk_id": "identity-jwt-validation.md_5",
-                "content": "Responders verified the public-key inventory and invalidated JWKS caches through the controlled cache-refresh operation. They confirmed that every replica loaded `sig-r32` before resuming the rotation schedule. Signature checks and session checks remained enabled throughout recovery.  \nSynthetic sign-in, refresh, and protected-resource requests succeeded across all replicas by 09:28 UTC. The incident was marked recovered after fifteen minutes without another `AUTH-JWT-013` failure.",
-                "metadata": {
-                    "title": "JWT Validation Failures After Signing Key Rotation",
-                    "section": "Resolution and Verification"
-                }
-            },
-            {
-                "chunk_id": "identity-jwt-validation.md_6",
-                "content": "Publish a replacement public key at least seventy minutes before activating its signer, covering the sixty-minute cache lifetime and a ten-minute margin. Retain the previous public key for at least the eight-minute token lifetime plus sixty seconds of permitted clock skew after its final issuance. Record both deadlines in the rotation checklist.  \nUse the [escalation procedure](incident-escalation.md) if authentication failures become widespread. Changing session idle limits does not resolve an unknown signing key.",
-                "metadata": {
-                    "title": "JWT Validation Failures After Signing Key Rotation",
-                    "section": "Prevention and Related Incidents"
-                }
-            }
-        ],
-        "is_updated_or_new": false,
-        "created_at": "2026-11-15T14:53:22.205581Z"
+        "created_at": "2026-11-18T20:43:48.398802Z",
+        "chunking_version": 1
     },
     "notifications-retry-policy.md": {
         "name": "notifications-retry-policy.md",
@@ -535,74 +403,8 @@
                 }
             }
         ],
-        "is_updated_or_new": false,
-        "created_at": "2026-11-15T14:53:22.205808Z"
-    },
-    "payments-database-timeout.md": {
-        "name": "payments-database-timeout.md",
-        "path": "data/module_07/knowledge/payments-database-timeout.md",
-        "hash": "b75a4577ee8b8781c82210e8ed57d5cb4f7a43aefcae4c2b75d2386b9ab66636",
-        "content": [
-            {
-                "chunk_id": "payments-database-timeout.md_0",
-                "content": "This fictional operational record covers incident `SYN-PAY-326` in the Harbor microservices system. All technical settings and observations are invented. The synchronous `payments-api` service records payment attempts in the PostgreSQL database `payments_store`. Eight API replicas each allow twelve database connections, leaving twenty-four connections reserved within the API database role's limit of 120.  \nOn 2025-05-19, a receipt-enrichment release caused HTTP 504 responses during payment submission. Some clients described the result as \u201ccheckout frozen,\u201d although the immediate failure was waiting for a database connection rather than waiting for a Kafka consumer.",
-                "metadata": {
-                    "title": "Database Connection Pool Exhaustion in Payment Requests",
-                    "section": "Overview"
-                }
-            },
-            {
-                "chunk_id": "payments-database-timeout.md_1",
-                "content": "The API returned `PAY-DB-POOL-017` after its 750-millisecond pool-acquisition deadline. `db_pool_in_use` stayed at twelve on each affected replica, while `db_pool_waiters` rose sharply. Request latency approached the gateway timeout and successful throughput fell by sixty percent.  \nDatabase CPU remained at thirty-five percent. Several sessions appeared as `idle in transaction`, and query execution time itself remained normal. Kafka's oldest-command age stayed below two minutes during the first ten minutes of the incident.",
-                "metadata": {
-                    "title": "Database Connection Pool Exhaustion in Payment Requests",
-                    "section": "Observed Symptoms"
-                }
-            },
-            {
-                "chunk_id": "payments-database-timeout.md_2",
-                "content": "The new receipt lookup held an open database transaction while waiting as long as twelve seconds for an external receipt response. Connections remained checked out during that network wait. At the observed arrival rate, all ninety-six API connections became occupied, leaving new requests queued until acquisition timed out.  \nResponders matched connection checkout spans to receipt-call spans and reproduced the behavior with a deliberately delayed receipt response. The database was reachable; neither a slow SQL query nor the configured connection count alone explained the incident.",
-                "metadata": {
-                    "title": "Database Connection Pool Exhaustion in Payment Requests",
-                    "section": "Confirmed Root Cause"
-                }
-            },
-            {
-                "chunk_id": "payments-database-timeout.md_3",
-                "content": "A database lock storm and excessive Kafka replay were considered. Lock-wait metrics and consumer progress did not support those explanations. The receipt service's own reason for responding slowly was not established in this investigation and remains unknown.",
-                "metadata": {
-                    "title": "Database Connection Pool Exhaustion in Payment Requests",
-                    "section": "Confirmed Root Cause",
-                    "subsection": "Unverified Hypotheses"
-                }
-            },
-            {
-                "chunk_id": "payments-database-timeout.md_4",
-                "content": "1. Compare connection acquisition time with query execution time. `PAY-DB-POOL-017` identifies pool waiting, not necessarily SQL execution failure.\n2. Count active connections across every API replica and inspect transaction age. Include rollout overlap when checking the database role's connection budget.\n3. Correlate long checkouts with outbound calls and record transaction identifiers without copying payment payloads.\n4. Find each timed-out request using its original idempotency key or purchase reference. A client timeout does not establish whether an earlier transaction committed.\n5. If API admission is healthy but commands remain pending, use the [Kafka lag procedure](payments-kafka-consumer-lag.md) instead.",
-                "metadata": {
-                    "title": "Database Connection Pool Exhaustion in Payment Requests",
-                    "section": "Diagnostic Procedure"
-                }
-            },
-            {
-                "chunk_id": "payments-database-timeout.md_5",
-                "content": "Responders set `PAYMENT_RECEIPT_LOOKUP_IN_TX=false` through the existing emergency feature switch. This disabled optional receipt enrichment and restored the previously verified transaction path. Connections drained as outstanding receipt calls reached their deadlines.  \nOperators did not raise every pool limit: eight pools of twenty would exceed the API role's total allowance before reserving operational headroom. They reconciled indeterminate payment attempts under the [idempotency procedure](payments-idempotency.md), retaining the original key for retries.",
-                "metadata": {
-                    "title": "Database Connection Pool Exhaustion in Payment Requests",
-                    "section": "Resolution"
-                }
-            },
-            {
-                "chunk_id": "payments-database-timeout.md_6",
-                "content": "Recovery required pool acquisition below fifty milliseconds at the ninety-fifth percentile, no growing waiter queue, and fewer than one percent payment request errors for fifteen minutes. Twenty-seven timed-out attempts were reconciled; the ledger showed one capture per purchase reference in that set.  \nRelease checks now include delayed receipt responses and connection-hold duration. Use the [escalation procedure](incident-escalation.md) if reconciliation cannot bound financial exposure, even after request latency returns to normal.",
-                "metadata": {
-                    "title": "Database Connection Pool Exhaustion in Payment Requests",
-                    "section": "Verification and Prevention"
-                }
-            }
-        ],
-        "is_updated_or_new": false,
-        "created_at": "2026-11-15T14:53:22.206028Z"
+        "created_at": "2026-11-18T20:43:48.399094Z",
+        "chunking_version": 1
     },
     "orders-deployment-failure.md": {
         "name": "orders-deployment-failure.md",
@@ -667,7 +469,205 @@
                 }
             }
         ],
-        "is_updated_or_new": false,
-        "created_at": "2026-11-15T14:53:22.206260Z"
+        "created_at": "2026-11-18T20:43:48.399311Z",
+        "chunking_version": 1
+    },
+    "payments-database-timeout.md": {
+        "name": "payments-database-timeout.md",
+        "path": "data/module_07/knowledge/payments-database-timeout.md",
+        "hash": "b75a4577ee8b8781c82210e8ed57d5cb4f7a43aefcae4c2b75d2386b9ab66636",
+        "content": [
+            {
+                "chunk_id": "payments-database-timeout.md_0",
+                "content": "This fictional operational record covers incident `SYN-PAY-326` in the Harbor microservices system. All technical settings and observations are invented. The synchronous `payments-api` service records payment attempts in the PostgreSQL database `payments_store`. Eight API replicas each allow twelve database connections, leaving twenty-four connections reserved within the API database role's limit of 120.  \nOn 2025-05-19, a receipt-enrichment release caused HTTP 504 responses during payment submission. Some clients described the result as \u201ccheckout frozen,\u201d although the immediate failure was waiting for a database connection rather than waiting for a Kafka consumer.",
+                "metadata": {
+                    "title": "Database Connection Pool Exhaustion in Payment Requests",
+                    "section": "Overview"
+                }
+            },
+            {
+                "chunk_id": "payments-database-timeout.md_1",
+                "content": "The API returned `PAY-DB-POOL-017` after its 750-millisecond pool-acquisition deadline. `db_pool_in_use` stayed at twelve on each affected replica, while `db_pool_waiters` rose sharply. Request latency approached the gateway timeout and successful throughput fell by sixty percent.  \nDatabase CPU remained at thirty-five percent. Several sessions appeared as `idle in transaction`, and query execution time itself remained normal. Kafka's oldest-command age stayed below two minutes during the first ten minutes of the incident.",
+                "metadata": {
+                    "title": "Database Connection Pool Exhaustion in Payment Requests",
+                    "section": "Observed Symptoms"
+                }
+            },
+            {
+                "chunk_id": "payments-database-timeout.md_2",
+                "content": "The new receipt lookup held an open database transaction while waiting as long as twelve seconds for an external receipt response. Connections remained checked out during that network wait. At the observed arrival rate, all ninety-six API connections became occupied, leaving new requests queued until acquisition timed out.  \nResponders matched connection checkout spans to receipt-call spans and reproduced the behavior with a deliberately delayed receipt response. The database was reachable; neither a slow SQL query nor the configured connection count alone explained the incident.",
+                "metadata": {
+                    "title": "Database Connection Pool Exhaustion in Payment Requests",
+                    "section": "Confirmed Root Cause"
+                }
+            },
+            {
+                "chunk_id": "payments-database-timeout.md_3",
+                "content": "A database lock storm and excessive Kafka replay were considered. Lock-wait metrics and consumer progress did not support those explanations. The receipt service's own reason for responding slowly was not established in this investigation and remains unknown.",
+                "metadata": {
+                    "title": "Database Connection Pool Exhaustion in Payment Requests",
+                    "section": "Confirmed Root Cause",
+                    "subsection": "Unverified Hypotheses"
+                }
+            },
+            {
+                "chunk_id": "payments-database-timeout.md_4",
+                "content": "1. Compare connection acquisition time with query execution time. `PAY-DB-POOL-017` identifies pool waiting, not necessarily SQL execution failure.\n2. Count active connections across every API replica and inspect transaction age. Include rollout overlap when checking the database role's connection budget.\n3. Correlate long checkouts with outbound calls and record transaction identifiers without copying payment payloads.\n4. Find each timed-out request using its original idempotency key or purchase reference. A client timeout does not establish whether an earlier transaction committed.\n5. If API admission is healthy but commands remain pending, use the [Kafka lag procedure](payments-kafka-consumer-lag.md) instead.",
+                "metadata": {
+                    "title": "Database Connection Pool Exhaustion in Payment Requests",
+                    "section": "Diagnostic Procedure"
+                }
+            },
+            {
+                "chunk_id": "payments-database-timeout.md_5",
+                "content": "Responders set `PAYMENT_RECEIPT_LOOKUP_IN_TX=false` through the existing emergency feature switch. This disabled optional receipt enrichment and restored the previously verified transaction path. Connections drained as outstanding receipt calls reached their deadlines.  \nOperators did not raise every pool limit: eight pools of twenty would exceed the API role's total allowance before reserving operational headroom. They reconciled indeterminate payment attempts under the [idempotency procedure](payments-idempotency.md), retaining the original key for retries.",
+                "metadata": {
+                    "title": "Database Connection Pool Exhaustion in Payment Requests",
+                    "section": "Resolution"
+                }
+            },
+            {
+                "chunk_id": "payments-database-timeout.md_6",
+                "content": "Recovery required pool acquisition below fifty milliseconds at the ninety-fifth percentile, no growing waiter queue, and fewer than one percent payment request errors for fifteen minutes. Twenty-seven timed-out attempts were reconciled; the ledger showed one capture per purchase reference in that set.  \nRelease checks now include delayed receipt responses and connection-hold duration. Use the [escalation procedure](incident-escalation.md) if reconciliation cannot bound financial exposure, even after request latency returns to normal.",
+                "metadata": {
+                    "title": "Database Connection Pool Exhaustion in Payment Requests",
+                    "section": "Verification and Prevention"
+                }
+            }
+        ],
+        "created_at": "2026-11-18T20:43:48.399558Z",
+        "chunking_version": 1
+    },
+    "payments-idempotency.md": {
+        "name": "payments-idempotency.md",
+        "path": "data/module_07/knowledge/payments-idempotency.md",
+        "hash": "f90e3489cb6b5664948b63289f7a62d92e8fe6fba3ab1bceb0e00a9ec4514d27",
+        "content": [
+            {
+                "chunk_id": "payments-idempotency.md_0",
+                "content": "This fictional runbook covers duplicate-request handling in the Harbor microservices system and incident `SYN-PAY-338`. Every identifier, retention period, and outcome is invented. `payments-api` requires an `Idempotency-Key` for payment submission. The key identifies one intended operation, not one network attempt.  \nRecords reside in PostgreSQL alongside the payment ledger, independently of the identity service's Redis session store. Their uniqueness scope is merchant identifier, operation type, and key. A browser-generated key such as `demo-purchase-028-attempt-a` is only a synthetic example, not an authentication credential.",
+                "metadata": {
+                    "title": "Duplicate Payment Requests and Idempotency Keys",
+                    "section": "Overview"
+                }
+            },
+            {
+                "chunk_id": "payments-idempotency.md_1",
+                "content": "During `SYN-PAY-338`, customers retried checkout after an HTTP 504 and later saw two captures for one purchase reference. Ledger reconciliation confirmed duplicate captures for two synthetic purchases. Other reports involved repeated receipt messages without repeated ledger captures.  \nThe API recorded different idempotency keys for the confirmed duplicate requests. Several same-key retries instead returned HTTP 202 because the original operation was still processing; this response alone was not a duplicate-payment failure.",
+                "metadata": {
+                    "title": "Duplicate Payment Requests and Idempotency Keys",
+                    "section": "Observed Symptoms"
+                }
+            },
+            {
+                "chunk_id": "payments-idempotency.md_2",
+                "content": "A client release generated a new key whenever it retried a timed-out submission. Two original requests had committed before their responses were lost. Their retries used different keys and were admitted as new operations, producing additional captures.  \nThe uniqueness constraint behaved as configured. It prevented duplicate execution within a key's scope but did not merge different keys merely because they shared a purchase reference. The client retry policy was the confirmed defect for the two reconciled purchases.",
+                "metadata": {
+                    "title": "Duplicate Payment Requests and Idempotency Keys",
+                    "section": "Confirmed Root Cause"
+                }
+            },
+            {
+                "chunk_id": "payments-idempotency.md_3",
+                "content": "Kafka redelivery and notification duplication were considered separately. No replayed command caused the two confirmed extra captures. Two other purchase references remained under reconciliation because adapter acknowledgments were unavailable. Exposure was bounded to at most one additional capture per reference; their final financial outcomes remained unknown.",
+                "metadata": {
+                    "title": "Duplicate Payment Requests and Idempotency Keys",
+                    "section": "Confirmed Root Cause",
+                    "subsection": "Unverified Hypotheses and Unresolved Outcomes"
+                }
+            },
+            {
+                "chunk_id": "payments-idempotency.md_4",
+                "content": "- Missing key: reject with HTTP 400 and `PAY-IDEM-400` before admitting work.\n- Same key and canonical payload while processing: return HTTP 202 with `PAY-IDEM-202` and `Retry-After=2`.\n- Same key and payload after completion: return the stored terminal result without another capture.\n- Same key with changed canonical payload: return HTTP 409 and `PAY-IDEM-409`; do not overwrite the existing record.  \nCanonical payload comparison includes `amount_minor`, currency, and `purchase_ref`; transport trace identifiers are excluded. Terminal success and decline records remain for twenty-four hours after completion. Processing or uncertain records do not expire automatically while reconciliation is open. After terminal-record expiry, reusing an old key may admit new work and requires checking the durable purchase ledger first.",
+                "metadata": {
+                    "title": "Duplicate Payment Requests and Idempotency Keys",
+                    "section": "Request Handling Rules"
+                }
+            },
+            {
+                "chunk_id": "payments-idempotency.md_5",
+                "content": "1. Collect purchase reference, operation identifier, key, payload fingerprint, and response status without recording payment instrument details.\n2. Compare keys and fingerprints across attempts. Trace a timeout through the ledger rather than assuming rollback.\n3. Keep the original key and payload for retries within retention. For uncertain or expired records, pause automatic resubmission and assign the reconciliation owner.\n4. Preserve the original operation identifier when handling Kafka redelivery. Commit command offsets only after durable ledger progress.  \nResponders restored stable client keys and reconciled the two confirmed extra captures through the standard reversal workflow. Repeated concurrent submissions with one key then produced one financial operation in a controlled exercise.",
+                "metadata": {
+                    "title": "Duplicate Payment Requests and Idempotency Keys",
+                    "section": "Diagnostic and Resolution Procedure"
+                }
+            },
+            {
+                "chunk_id": "payments-idempotency.md_6",
+                "content": "Combine [database timeout diagnostics](payments-database-timeout.md) with this runbook when a client cannot determine whether submission committed. Use [consumer lag recovery](payments-kafka-consumer-lag.md) for pending commands and [notification deduplication](notifications-retry-policy.md) for repeated receipts. Apply the [escalation rules](incident-escalation.md) immediately for confirmed duplicate captures or unbounded financial exposure.",
+                "metadata": {
+                    "title": "Duplicate Payment Requests and Idempotency Keys",
+                    "section": "Related Incidents"
+                }
+            }
+        ],
+        "created_at": "2026-11-18T20:43:48.399824Z",
+        "chunking_version": 1
+    },
+    "payments-kafka-consumer-lag.md": {
+        "name": "payments-kafka-consumer-lag.md",
+        "path": "data/module_07/knowledge/payments-kafka-consumer-lag.md",
+        "hash": "a4382299a104fa095afe6f8a73ef07096beac0ee4ad58e056125f4fcb53990ac",
+        "content": [
+            {
+                "chunk_id": "payments-kafka-consumer-lag.md_0",
+                "content": "This fictional incident record describes `SYN-PAY-317` in the Harbor microservices system. Every event, identifier, and measurement is invented. `payments-api` accepts asynchronous payment requests and returns HTTP 202 after durable admission. The `payments-worker` service consumes commands from Kafka topic `payment.commands.v2`, using consumer group `payment-executors` across twelve partitions.  \nOn 2025-05-12, accepted payments remained pending while checkout requests continued succeeding. This runbook concerns delayed execution after admission; a successful HTTP 202 does not mean that money has been captured.",
+                "metadata": {
+                    "title": "Kafka Consumer Lag and Delayed Payment Processing",
+                    "section": "Overview"
+                }
+            },
+            {
+                "chunk_id": "payments-kafka-consumer-lag.md_1",
+                "content": "Consumer lag reached 18,400 records, and the oldest pending command was twenty-four minutes old. Customers saw \u201cPayment processing\u201d for longer than the normal two-minute target. The group repeatedly logged `PAY-CONSUMER-REBALANCE`, and partition ownership moved among three worker replicas.  \nDatabase pool acquisition stayed below twenty milliseconds. Broker storage utilization and produce acknowledgment latency remained normal. These observations distinguished the backlog from the [database timeout incident](payments-database-timeout.md), which disrupted request handling before clients received a reliable outcome.",
+                "metadata": {
+                    "title": "Kafka Consumer Lag and Delayed Payment Processing",
+                    "section": "Observed Symptoms"
+                }
+            },
+            {
+                "chunk_id": "payments-kafka-consumer-lag.md_2",
+                "content": "A worker performed a blocking risk-service call while processing a batch of up to 1,000 records. Its `RISK_CHECK_TIMEOUT_MS=360000` exceeded `MAX_POLL_INTERVAL_MS=300000`. A single slow risk assessment could therefore prevent the next poll for longer than the group allowed.  \nThe broker removed that consumer, reassigned its partitions, and replayed commands whose offsets had not been committed. Trace timestamps showed six-minute waits immediately before each membership loss. Increasing replicas alone did not remove this blocking call.",
+                "metadata": {
+                    "title": "Kafka Consumer Lag and Delayed Payment Processing",
+                    "section": "Confirmed Root Cause"
+                }
+            },
+            {
+                "chunk_id": "payments-kafka-consumer-lag.md_3",
+                "content": "The reason for the risk-service delay remained unknown when this record was closed. A network interruption and an overloaded risk-service dependency were hypotheses without sufficient trace evidence. Responders did not classify either as a confirmed downstream outage. Broker capacity exhaustion was investigated but unsupported by the collected metrics.",
+                "metadata": {
+                    "title": "Kafka Consumer Lag and Delayed Payment Processing",
+                    "section": "Confirmed Root Cause",
+                    "subsection": "Unknown and Unverified Causes"
+                }
+            },
+            {
+                "chunk_id": "payments-kafka-consumer-lag.md_4",
+                "content": "1. Measure lag per partition and oldest-command age. Aggregate lag alone can hide one stalled partition.\n2. Compare group membership changes with poll intervals and worker traces. Identify which processing stage holds the batch.\n3. Check database checkout time and durable ledger progress before attributing every pending payment to Kafka.\n4. Inspect the command's payment identifier and idempotency record before replaying it. A repeated Kafka delivery can refer to an already completed capture.",
+                "metadata": {
+                    "title": "Kafka Consumer Lag and Delayed Payment Processing",
+                    "section": "Diagnostic Procedure"
+                }
+            },
+            {
+                "chunk_id": "payments-kafka-consumer-lag.md_5",
+                "content": "Responders applied the established worker profile: `RISK_CHECK_TIMEOUT_MS=5000` and `MAX_POLL_RECORDS=50`. Timed-out assessments were recorded durably as deferred work before transfer to `payment.risk-retry.v1`. The worker acknowledged an original command only after the corresponding ledger state was durable.  \nWith poll stability restored, operators increased workers from three to six within the twelve-partition limit. They avoided resetting offsets to the topic beginning. The backlog drained in thirty-one minutes; recovery required oldest-command age below two minutes and stable membership for fifteen minutes.",
+                "metadata": {
+                    "title": "Kafka Consumer Lag and Delayed Payment Processing",
+                    "section": "Resolution and Recovery"
+                }
+            },
+            {
+                "chunk_id": "payments-kafka-consumer-lag.md_6",
+                "content": "Alert on command age as well as offset distance. Exercise a slow risk assessment during worker release checks and compare processing deadlines with the poll limit.  \nUse [payment idempotency rules](payments-idempotency.md) when reconciling redelivered commands. Send delayed customer updates through the [notification retry procedure](notifications-retry-policy.md), preserving the original event identity. Follow the [escalation runbook](incident-escalation.md) if pending age exceeds fifteen minutes across multiple partitions.",
+                "metadata": {
+                    "title": "Kafka Consumer Lag and Delayed Payment Processing",
+                    "section": "Prevention and Related Procedures"
+                }
+            }
+        ],
+        "created_at": "2026-11-18T20:43:48.400115Z",
+        "chunking_version": 1
     }
 }
