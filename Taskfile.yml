@@ -134,3 +134,9 @@ tasks:
     aliases: [run:module_07:analyze-incident]
     cmds:
       - uv run --env-file .env python -m agents_lab.module_07.main demo-incident-investigator
+
+  run:module_08:demo-incident-investigator:
+    desc: Run the Module 08 incident orchestrator on sample questions
+    aliases: [run:module_08]
+    cmds:
+      - uv run --env-file .env python -m agents_lab.module_08.main demo-incident-investigator
